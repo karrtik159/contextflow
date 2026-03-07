@@ -9,9 +9,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class SessionCreate(BaseModel):
-    """Fields to start a new chat session."""
+    """API-facing schema — used for request validation."""
 
     title: str = Field(default="New Chat", max_length=255)
+
+
+class SessionCreateInternal(SessionCreate):
+    """Internal schema — includes user_id for FastCRUD create()."""
+
+    user_id: uuid.UUID
 
 
 class SessionUpdate(BaseModel):

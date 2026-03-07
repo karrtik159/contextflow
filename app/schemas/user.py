@@ -16,9 +16,15 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    """Fields required to register a new user."""
+    """API-facing schema — used for request validation."""
 
     password: str = Field(min_length=8, max_length=128)
+
+
+class UserCreateInternal(UserBase):
+    """Internal schema — maps directly to ORM columns for FastCRUD create()."""
+
+    hashed_password: str
 
 
 class UserUpdate(BaseModel):

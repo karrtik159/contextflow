@@ -10,10 +10,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class MessageCreate(BaseModel):
-    """Fields required to store a new message."""
+    """API-facing schema — used for request validation."""
 
     role: Literal["user", "assistant", "system"]
     content: str = Field(min_length=1)
+
+
+class MessageCreateInternal(MessageCreate):
+    """Internal schema — includes session_id for FastCRUD create()."""
+
+    session_id: uuid.UUID
 
 
 class MessageRead(BaseModel):
