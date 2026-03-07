@@ -1,65 +1,180 @@
 """
-Core configuration — loads all environment variables via Pydantic BaseSettings.
+Core configuration — modular Pydantic BaseSettings grouped by concern.
+
+Each sub-settings class handles one domain (app, auth, DB, Redis, etc.).
+The final `Settings` class composes them all via multiple inheritance,
+loading values from .env automatically.
+
+Usage:
+    from app.core.config import settings
+    print(settings.POSTGRES_URI)
 """
 
-from functools import lru_cache
-from typing import Literal
+import os
+from enum import Enum
 
-from pydantic import SecretStr
+from pydantic import SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
-    """Application-wide settings, auto-loaded from .env file."""
+# ── Application ─────────────────────────────────────────────
+class AppSettings(BaseSettings):
+    APP_NAME: str = "OpenAI Clone"
+    APP_DESCRIPTION: str | None = "Real-time Voice & Deep Memory AI"
+    APP_VERSION: str | None = "0.1.0"
+    LICENSE_NAME: str | None = "MIT"
+    CONTACT_NAME: str | None = None
+    CONTACT_EMAIL: str | None = None
 
+
+# ── Environment ─────────────────────────────────────────────
+class EnvironmentOption(str, Enum):
+    LOCAL = "local"
+    STAGING = "staging"
+    PRODUCTION = "production"
+
+
+class EnvironmentSettings(BaseSettings):
+    ENVIRONMENT: EnvironmentOption = EnvironmentOption.LOCAL
+
+
+# ── Auth / JWT ──────────────────────────────────────────────
+class CryptSettings(BaseSettings):
+    SECRET_KEY: SecretStr = SecretStr("super-secret-change-me-in-production")
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+
+# ── PostgreSQL ──────────────────────────────────────────────
+class PostgresSettings(BaseSettings):
+    POSTGRES_USER: str = "postgres"
+    POSTGRES_PASSWORD: str = "changeme"
+    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "openai_clone"
+    POSTGRES_ASYNC_PREFIX: str = "postgresql+asyncpg://"
+    POSTGRES_SYNC_PREFIX: str = "postgresql://"
+    POSTGRES_URL: str | None = None
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def POSTGRES_URI(self) -> str:
+        """Builds user:pass@host:port/db fragment."""
+        credentials = f"{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+        location = f"{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return f"{credentials}@{location}"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def database_url(self) -> str:
+        """Full async connection URL for SQLAlchemy / Alembic."""
+        if self.POSTGRES_URL:
+            return self.POSTGRES_URL
+        return f"{self.POSTGRES_ASYNC_PREFIX}{self.POSTGRES_URI}"
+
+
+# ── Neo4j ───────────────────────────────────────────────────
+class Neo4jSettings(BaseSettings):
+    NEO4J_URI: str = "bolt://localhost:7687"
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: SecretStr = SecretStr("changeme")
+
+
+# ── Redis (Cache + Session) ─────────────────────────────────
+class RedisCacheSettings(BaseSettings):
+    REDIS_CACHE_HOST: str = "localhost"
+    REDIS_CACHE_PORT: int = 6379
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def REDIS_CACHE_URL(self) -> str:
+        return f"redis://{self.REDIS_CACHE_HOST}:{self.REDIS_CACHE_PORT}"
+
+
+# ── Redis Rate Limiter ──────────────────────────────────────
+class RedisRateLimiterSettings(BaseSettings):
+    REDIS_RATE_LIMIT_HOST: str = "localhost"
+    REDIS_RATE_LIMIT_PORT: int = 6379
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def REDIS_RATE_LIMIT_URL(self) -> str:
+        return f"redis://{self.REDIS_RATE_LIMIT_HOST}:{self.REDIS_RATE_LIMIT_PORT}"
+
+
+class DefaultRateLimitSettings(BaseSettings):
+    DEFAULT_RATE_LIMIT_LIMIT: int = 10
+    DEFAULT_RATE_LIMIT_PERIOD: int = 3600
+
+
+# ── CORS ────────────────────────────────────────────────────
+class CORSSettings(BaseSettings):
+    CORS_ORIGINS: list[str] = ["*"]
+    CORS_METHODS: list[str] = ["*"]
+    CORS_HEADERS: list[str] = ["*"]
+
+
+# ── First Admin User (Seeding) ──────────────────────────────
+class FirstUserSettings(BaseSettings):
+    ADMIN_NAME: str = "admin"
+    ADMIN_EMAIL: str = "admin@admin.com"
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "!Ch4ng3Th1sP4ssW0rd!"
+
+
+# ── AI Services ─────────────────────────────────────────────
+class OpenAISettings(BaseSettings):
+    OPENAI_API_KEY: SecretStr = SecretStr("")
+
+
+class LiveKitSettings(BaseSettings):
+    LIVEKIT_URL: str = ""
+    LIVEKIT_API_KEY: str = ""
+    LIVEKIT_API_SECRET: SecretStr = SecretStr("")
+
+
+class Mem0Settings(BaseSettings):
+    MEM0_API_KEY: SecretStr = SecretStr("")
+
+
+# ── Observability ───────────────────────────────────────────
+class ObservabilitySettings(BaseSettings):
+    LANGSMITH_API_KEY: SecretStr = SecretStr("")
+    LANGSMITH_PROJECT: str = "openai-clone"
+
+
+# ── Logging ─────────────────────────────────────────────────
+class LoggerSettings(BaseSettings):
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT_JSON: bool = False
+
+
+# ── Composed Settings ───────────────────────────────────────
+class Settings(
+    AppSettings,
+    EnvironmentSettings,
+    CryptSettings,
+    PostgresSettings,
+    Neo4jSettings,
+    RedisCacheSettings,
+    RedisRateLimiterSettings,
+    DefaultRateLimitSettings,
+    CORSSettings,
+    FirstUserSettings,
+    OpenAISettings,
+    LiveKitSettings,
+    Mem0Settings,
+    ObservabilitySettings,
+    LoggerSettings,
+):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "..", ".env"),
         env_file_encoding="utf-8",
-        case_sensitive=False,
+        case_sensitive=True,
         extra="ignore",
     )
 
-    # --- Application ---
-    app_name: str = "OpenAI_Clone"
-    app_env: Literal["development", "staging", "production"] = "development"
-    app_debug: bool = True
 
-    # --- PostgreSQL ---
-    database_url: str = "postgresql+asyncpg://postgres:changeme@localhost:5432/openai_clone"
-
-    # --- Redis ---
-    redis_url: str = "redis://localhost:6379/0"
-
-    # --- Neo4j ---
-    neo4j_uri: str = "bolt://localhost:7687"
-    neo4j_user: str = "neo4j"
-    neo4j_password: SecretStr = SecretStr("changeme")
-
-    # --- Auth / JWT ---
-    secret_key: SecretStr = SecretStr("super-secret-change-me-in-production")
-    access_token_expire_minutes: int = 30
-
-    # --- OpenAI ---
-    openai_api_key: SecretStr = SecretStr("")
-
-    # --- LiveKit ---
-    livekit_url: str = ""
-    livekit_api_key: str = ""
-    livekit_api_secret: SecretStr = SecretStr("")
-
-    # --- Mem0 ---
-    mem0_api_key: SecretStr = SecretStr("")
-
-    # --- Observability ---
-    langsmith_api_key: SecretStr = SecretStr("")
-    langsmith_project: str = "openai-clone"
-
-    @property
-    def is_production(self) -> bool:
-        return self.app_env == "production"
-
-
-@lru_cache
-def get_settings() -> Settings:
-    """Singleton accessor — cached after first call."""
-    return Settings()
+# Module-level singleton — import this everywhere
+settings = Settings()

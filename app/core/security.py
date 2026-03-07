@@ -1,37 +1,49 @@
 """
-JWT token creation and verification utilities.
+JWT token creation, verification, and password hashing utilities.
+
+Uses bcrypt directly (not passlib) to avoid compatibility issues
+with bcrypt>=4.1. Passwords are SHA-256 pre-hashed to sidestep
+bcrypt's 72-byte truncation limit.
 """
 
-from datetime import datetime, timedelta, timezone
+import base64
+import hashlib
+from datetime import UTC, datetime, timedelta
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
-from app.core.config import get_settings
+from app.core.config import settings
 
-settings = get_settings()
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def _prehash(password: str) -> bytes:
+    """
+    Pre-hash password with SHA-256 before bcrypt.
 
-ALGORITHM = "HS256"
+    Returns base64-encoded bytes (always 44 chars, under bcrypt's 72-byte limit).
+    """
+    digest = hashlib.sha256(password.encode("utf-8")).digest()
+    return base64.b64encode(digest)
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    """Hash a password using bcrypt with SHA-256 pre-hashing."""
+    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt()).decode("ascii")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    """Verify a plain password against a bcrypt hash."""
+    return bcrypt.checkpw(_prehash(plain), hashed.encode("ascii"))
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
+    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(
         to_encode,
-        settings.secret_key.get_secret_value(),
-        algorithm=ALGORITHM,
+        settings.SECRET_KEY.get_secret_value(),
+        algorithm=settings.ALGORITHM,
     )
 
 
@@ -39,8 +51,8 @@ def decode_access_token(token: str) -> dict | None:
     try:
         return jwt.decode(
             token,
-            settings.secret_key.get_secret_value(),
-            algorithms=[ALGORITHM],
+            settings.SECRET_KEY.get_secret_value(),
+            algorithms=[settings.ALGORITHM],
         )
     except JWTError:
         return None

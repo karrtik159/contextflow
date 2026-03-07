@@ -6,37 +6,32 @@ and the underlying Neo4j / pgvector stores.
 
 from mem0 import Memory
 
-from app.core.config import get_settings
-
-settings = get_settings()
+from app.core.config import settings
 
 
 def _build_mem0_config() -> dict:
-    """
-    Build Mem0 configuration dict.
-    Adapt this as Mem0's config API evolves.
-    """
+    """Build Mem0 configuration dict."""
     return {
         "llm": {
             "provider": "openai",
             "config": {
-                "api_key": settings.openai_api_key.get_secret_value(),
+                "api_key": settings.OPENAI_API_KEY.get_secret_value(),
                 "model": "gpt-4o-mini",
             },
         },
         "vector_store": {
             "provider": "pgvector",
             "config": {
-                "connection_string": settings.database_url.replace("+asyncpg", ""),
+                "connection_string": f"{settings.POSTGRES_SYNC_PREFIX}{settings.POSTGRES_URI}",
                 "collection_name": "mem0_memories",
             },
         },
         "graph_store": {
             "provider": "neo4j",
             "config": {
-                "url": settings.neo4j_uri,
-                "username": settings.neo4j_user,
-                "password": settings.neo4j_password.get_secret_value(),
+                "url": settings.NEO4J_URI,
+                "username": settings.NEO4J_USER,
+                "password": settings.NEO4J_PASSWORD.get_secret_value(),
             },
         },
     }
