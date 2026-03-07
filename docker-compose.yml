@@ -1,0 +1,148 @@
+# ============================================================
+# Docker Compose — OpenAI Clone Full Stack
+# Services: FastAPI App, PostgreSQL+pgvector, Redis, Neo4j
+#
+# Build fast:  DOCKER_BUILDKIT=1 docker compose build
+# Start all:   docker compose up -d
+# Dev mode:    docker compose --profile dev up -d
+# ============================================================
+
+services:
+  # ── FastAPI Application (Production) ──────────────────────
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     target: runtime         # Build only up to the runtime stage
+  #     args:
+  #       BUILDKIT_INLINE_CACHE: 1
+  #   image: openai-clone:latest
+  #   container_name: openai_clone_app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - DATABASE_URL=postgresql+asyncpg://postgres:changeme@postgres:5432/openai_clone
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - NEO4J_URI=bolt://neo4j:7687
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     neo4j:
+  #       condition: service_healthy
+  #   networks:
+  #     - app-network
+
+  # ── FastAPI Application (Dev — hot reload) ────────────────
+  app-dev:
+    profiles: ["dev"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deps            # Only need deps stage — source is mounted
+    container_name: openai_clone_app_dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:changeme@postgres:5432/openai_clone
+      - REDIS_URL=redis://redis:6379/0
+      - NEO4J_URI=bolt://neo4j:7687
+      - APP_DEBUG=true
+    volumes:
+      # Mount source code for instant hot-reload (no rebuild needed)
+      - ./app:/app/app
+      - ./agents:/app/agents
+    working_dir: /app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # ── PostgreSQL + pgvector ─────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: openai_clone_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: openai_clone
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d openai_clone"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  # ── Redis ─────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: openai_clone_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app-network
+
+  # ── Neo4j ─────────────────────────────────────────────────
+  neo4j:
+    image: neo4j:5-community
+    container_name: openai_clone_neo4j
+    restart: unless-stopped
+    ports:
+      - "7474:7474"   # Browser UI
+      - "7687:7687"   # Bolt protocol
+    environment:
+      NEO4J_AUTH: neo4j/changeme
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+# ── Volumes ───────────────────────────────────────────────────
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  neo4j_logs:
+
+# ── Network ───────────────────────────────────────────────────
+networks:
+  app-network:
+    driver: bridge
