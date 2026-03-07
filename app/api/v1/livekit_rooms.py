@@ -6,6 +6,8 @@ Generates LiveKit access tokens for users to join voice rooms.
 LiveKit Agents SDK 1.4+ — verified against docs.livekit.io (March 2026).
 """
 
+import json
+
 from fastapi import APIRouter, HTTPException
 from livekit.api import AccessToken, VideoGrants
 from pydantic import BaseModel, Field
@@ -18,6 +20,10 @@ router = APIRouter(prefix="/livekit", tags=["LiveKit"])
 class TokenRequest(BaseModel):
     user_id: str = Field(description="Identity of the user joining the room.")
     room_name: str = Field(description="Name of the LiveKit room to join.")
+    chat_session_id: str | None = Field(
+        default=None,
+        description="Optional chat session ID passed through to the voice worker for scoped RAG prefetch.",
+    )
 
 
 class TokenResponse(BaseModel):
@@ -55,6 +61,10 @@ async def create_room_token(request: TokenRequest):
             )
         )
     )
+    if request.chat_session_id:
+        token = token.with_attributes({"chat_session_id": request.chat_session_id}).with_metadata(
+            json.dumps({"chat_session_id": request.chat_session_id}, separators=(",", ":"))
+        )
 
     return TokenResponse(
         token=token.to_jwt(),
