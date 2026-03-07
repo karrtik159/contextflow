@@ -51,10 +51,12 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:changeme@postgres:5432/openai_clone
-      - REDIS_URL=redis://redis:6379/0
+      # Override hostnames to use Docker service names instead of localhost
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_PASSWORD=changeme
       - NEO4J_URI=bolt://neo4j:7687
-      - APP_DEBUG=true
+      - NEO4J_PASSWORD=changeme
+      - REDIS_CACHE_HOST=redis
     volumes:
       # Mount source code for instant hot-reload (no rebuild needed)
       - ./app:/app/app

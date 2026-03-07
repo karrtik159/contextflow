@@ -4,13 +4,11 @@ Neo4j graph database operations — entity and relationship queries.
 
 from neo4j import AsyncGraphDatabase
 
-from app.core.config import get_settings
-
-settings = get_settings()
+from app.core.config import settings
 
 _driver = AsyncGraphDatabase.driver(
-    settings.neo4j_uri,
-    auth=(settings.neo4j_user, settings.neo4j_password.get_secret_value()),
+    settings.NEO4J_URI,
+    auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD.get_secret_value()),
 )
 
 
@@ -23,8 +21,6 @@ async def find_related_entities(entity_name: str, max_hops: int = 2) -> list[dic
     """
     Traverse the knowledge graph to find entities related to `entity_name`
     within `max_hops` relationship hops.
-
-    Returns a list of dicts with keys: entity, relationship, related_entity.
     """
     query = """
     MATCH path = (start {name: $name})-[*1..$hops]-(end)
