@@ -3,11 +3,10 @@ Message ORM model — stores individual chat messages with optional embedding.
 """
 
 import uuid
-from datetime import datetime, timezone
-from typing import Literal
+from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Text, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,9 +31,20 @@ class Message(Base):
     token_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # pgvector embedding column (1536 dims = OpenAI text-embedding-3-small)
-    embedding = mapped_column(Vector(1536), nullable=True)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
+
+    __table_args__ = (
+        # HNSW Index for ultra-fast vector similarity search (cosine distance)
+        Index(
+            "ix_messages_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
+    )
 
     # Relationships
     session = relationship("ChatSession", back_populates="messages")

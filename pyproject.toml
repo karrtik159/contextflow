@@ -54,7 +54,7 @@ demo = [
 ]
 # NOTE: livekit-agents is NOT listed here due to an opentelemetry-sdk
 # version conflict with crewai. The voice worker runs as a separate
-# process with its own venv. See agents/voice/requirements.txt.
+# process with its own venv. See agents/voice/pyproject.toml.
 
 [tool.ruff]
 target-version = "py311"
