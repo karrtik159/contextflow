@@ -1,0 +1,18 @@
+[
+  {
+    "user_input": "How does the voice worker reach the backend?",
+    "user_id": "eval-user",
+    "reference": "The isolated LiveKit voice worker calls the FastAPI RAG endpoint over HTTP.",
+    "reference_contexts": [
+      "The Voice Worker calls POST /api/v1/rag/query over HTTP to fetch knowledge while keeping CrewAI and livekit-agents in separate processes."
+    ]
+  },
+  {
+    "user_input": "Why is the voice worker isolated from the FastAPI app?",
+    "user_id": "eval-user",
+    "reference": "It runs separately to avoid dependency conflicts, especially opentelemetry version mismatches between CrewAI and livekit-agents.",
+    "reference_contexts": [
+      "The Voice Agent runs as a completely isolated process to avoid opentelemetry-sdk mismatches between crewai and livekit-agents."
+    ]
+  }
+]

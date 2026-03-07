@@ -19,6 +19,9 @@ from agents.crews.tools.mem0_tool import MemoryStoreTool
 class MemoryCrew:
     """Background memory processor — extracts facts and updates the graph."""
 
+    agents_config = "config/memory_agents.yaml"
+    tasks_config = "config/memory_tasks.yaml"
+
     @agent
     def entity_extractor(self) -> Agent:
         return Agent(

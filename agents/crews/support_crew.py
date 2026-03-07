@@ -21,6 +21,9 @@ from agents.crews.tools.vector_search_tool import VectorSearchTool
 class SupportCrew:
     """Hybrid RAG crew — retrieves context and synthesizes answers."""
 
+    agents_config = "config/support_agents.yaml"
+    tasks_config = "config/support_tasks.yaml"
+
     @agent
     def context_gatherer(self) -> Agent:
         return Agent(

@@ -27,6 +27,7 @@ An advanced, high-performance open-source OpenAI Clone featuring **real-time voi
 | **AI Orchestration** | **CrewAI** | Role-based multi-agent crews (Support, Memory) with YAML config. |
 | **Memory Engine** | **Mem0** | Automated long-term user memory backed by pgvector + Neo4j. |
 | **Real-Time Voice** | **LiveKit** | WebRTC audio, STT/TTS pipeline, turn detection, barge-in handling. |
+| **Frontend Testing Harness** | **Gradio** | Rapid Python UI for chat demos, workflow validation, and RAG / memory debugging before a production frontend exists. |
 | **Cache & Session** | **Redis** | Sub-millisecond session state and short-term context. |
 | **Evaluation** | **RAGAS + LangSmith** | RAG quality metrics and full execution trace observability. |
 
@@ -87,15 +88,59 @@ uv sync  # Creates isolated environment for LiveKit agents
 uv run python src/agent.py dev
 ```
 
+### Option C: Gradio Frontend Testing Harness
+
+The repo includes an optional `demo` dependency group for a lightweight frontend testing surface with Gradio:
+
+```bash
+uv sync --extra demo
+uv run python demo/gradio_app.py
+```
+
+Recommended design direction for the Gradio layer:
+
+- Start with `gr.ChatInterface` for the fastest text-chat test harness around the FastAPI endpoints.
+- Move to `gr.Blocks` once you need custom layout, feedback controls, session inspection, or side panels for memory / RAG debugging.
+- Use tabs or grouped panels to separate core chat, memory inspection, and retrieval diagnostics during development.
+- Treat Gradio as the **frontend testing platform**, not the long-term production UI.
+
+Useful references:
+
+- ChatInterface docs: https://www.gradio.app/docs/gradio/chatinterface
+- Blocks guide: https://www.gradio.app/guides/creating-a-custom-chatbot-with-blocks
+- API reference: https://www.gradio.app/docs
+
 ## 🧪 Testing
 
 ```bash
-# Unit & integration tests
-pytest
+# FastAPI unit & integration tests
+uv run pytest
 
 # RAG quality evaluation (requires OpenAI API key)
-pytest tests/test_eval/
+uv run pytest tests/test_eval/
+
+# Voice worker tests (isolated env)
+cd agents/voice
+uv run pytest
 ```
+
+### RAGAS Evaluation
+
+Initial RAGAS support is scaffolded for answer-level evaluation now, with a clean path to add retrieval metrics once the backend exposes retrieved contexts in an eval-friendly response.
+
+```bash
+# Requires OPENAI_API_KEY and a running FastAPI backend
+uv run python scripts/run_ragas_eval.py
+```
+
+Current fixture dataset:
+
+- `tests/test_eval/fixtures/ragas_cases.json`
+
+Current framework entrypoints:
+
+- `app/evals/ragas_framework.py`
+- `scripts/run_ragas_eval.py`
 
 ## 🤝 Contributing
 
