@@ -34,68 +34,58 @@ An advanced, high-performance open-source OpenAI Clone featuring **real-time voi
 
 ```text
 OpenAI_Clone/
-├── app/                       # Main FastAPI application
-│   ├── main.py                # Entry point & lifespan events
-│   ├── core/                  # Config, DB engine, security
-│   ├── models/                # SQLAlchemy ORM models
-│   ├── schemas/               # Pydantic V2 Create/Update/Read schemas
-│   ├── api/v1/                # Versioned API routers (auth, users, chat, livekit)
-│   ├── services/              # FastCRUD, vector_search, graph_search
-│   └── memory/                # Mem0 integration layer
-├── agents/                    # AI agents (decoupled from app)
-│   ├── voice/                 # LiveKit voice transport (router, RAG)
+├── app/                       # Main FastAPI application (CrewAI, DBs, Auth)
+├── agents/
+│   ├── voice/                 # 🎙️ LiveKit Voice Worker (Standalone uv project)
+│   │   ├── src/agent.py       # Voice entrypoint
+│   │   └── pyproject.toml     # Isolated dependencies (livekit-agents, httpx)
 │   └── crews/                 # CrewAI orchestration (Support, Memory)
 ├── tests/                     # pytest (API, agents, RAGAS eval)
 ├── alembic/                   # Database migrations
-├── pyproject.toml             # Dependencies & tooling config
-└── .env.example               # Environment variable template
+├── docker-compose.yml         # Full stack deployment (FastAPI, Voice Worker, DBs)
+└── pyproject.toml             # FastAPI Main Dependencies
 ```
+
+### 🧱 Agent Architecture (Separation of Concerns)
+
+To avoid dependency conflicts (specifically `opentelemetry-sdk` mismatches between `crewai` and `livekit-agents`), the Voice Agent runs as a **completely isolated process**.
+
+1. **Voice Worker (`agents/voice`)**: Connects to LiveKit Cloud, streams STT/TTS, handles turn detection.
+2. **FastAPI RAG Endpoint**: Runs CrewAI, connects to Postgres + Neo4j.
+3. **Integration**: The Voice Worker calls `POST /api/v1/rag/query` over HTTP to fetch knowledge, keeping environments clean.
 
 ## 🛠️ Getting Started
 
 ### Prerequisites
-- Python 3.11+
-- PostgreSQL 15+ with `pgvector` extension
-- Neo4j 5+
-- Redis Server
-- API Keys: OpenAI, LiveKit, Mem0
+- Python 3.11+ (FastAPI) & Python 3.13 (Voice Worker)
+- PostgreSQL 15+ with `pgvector`
+- Neo4j 5+ & Redis Server
+- `uv` package manager (`pip install uv`)
 
-### Installation
+### Option A: Full Stack with Docker (Recommended)
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/karrtik159/OpenAI_Clone.git
-   cd OpenAI_Clone
-   ```
+Start the entire environment (FastAPI, Voice Worker, Postgres, Redis, Neo4j) with hot-reloading:
 
-2. **Create a virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+```bash
+cp .env.example .env
+# Edit .env with your OpenAI, LiveKit, and DB credentials
+docker compose --profile dev --profile voice-dev up -d --build
+```
 
-3. **Install dependencies:**
-   ```bash
-   pip install -e ".[dev]"
-   ```
+### Option B: Local Setup (Two Terminals)
 
-4. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
-   ```
+**Terminal 1: FastAPI Backend**
+```bash
+uv sync  # Installs main dependencies
+uv run uvicorn app.main:app --reload
+```
 
-5. **Run database migrations:**
-   ```bash
-   alembic upgrade head
-   ```
-
-6. **Start the server:**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-
-7. **Open API docs:** Navigate to `http://localhost:8000/docs`
+**Terminal 2: LiveKit Voice Worker**
+```bash
+cd agents/voice
+uv sync  # Creates isolated environment for LiveKit agents
+uv run python src/agent.py dev
+```
 
 ## 🧪 Testing
 

@@ -26,10 +26,6 @@ Rules:
 """,
         )
 
-    async def on_enter(self) -> None:
-        """Called when this agent becomes active."""
-        await self.session.generate_reply(instructions="Greet the user warmly and briefly. Offer your help.")
-
     @function_tool()
     async def transfer_to_rag(self, context: RunContext):
         """Transfer the conversation to a Deep Knowledge specialist who can
