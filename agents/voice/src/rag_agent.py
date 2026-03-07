@@ -6,11 +6,6 @@ endpoint over HTTP for Hybrid Graph-Vector RAG, and streams the answer via TTS.
 
 Architecture:
   Voice Worker (livekit-agents) --HTTP--> FastAPI (crewai) ---> pgvector + Neo4j + Mem0
-
-This keeps crewai and livekit-agents in separate processes with
-separate opentelemetry-sdk versions. No import conflicts.
-
-LiveKit Agents SDK 1.4+ — verified against docs.livekit.io (March 2026).
 """
 
 import os
@@ -23,13 +18,7 @@ API_BASE_URL = os.getenv("API_BASE_URL", "http://app-dev:8000")
 
 
 class RAGAgent(Agent):
-    """
-    Deep Knowledge Agent — calls the FastAPI RAG endpoint over HTTP.
-
-    Tools:
-      - search_knowledge: POST /api/v1/rag/query
-      - transfer_to_router: hands back to the casual conversation agent.
-    """
+    """Deep Knowledge Agent — calls the FastAPI RAG endpoint over HTTP."""
 
     def __init__(self, **kwargs) -> None:
         super().__init__(
@@ -58,8 +47,6 @@ Rules:
         """Search the knowledge base, past conversations, and user memory
         to find relevant information for answering the user's question.
         Input: the user's question as a string."""
-
-        # Determine user_id from session userdata if available
         user_id = "anonymous"
         if hasattr(self.session, "userdata") and self.session.userdata:
             user_id = getattr(self.session.userdata, "user_id", "anonymous")
@@ -82,6 +69,6 @@ Rules:
     async def transfer_to_router(self, context: RunContext):
         """Transfer back to the general conversation assistant for
         casual chat, greetings, or non-knowledge questions."""
-        from agents.voice.router_agent import RouterAgent
+        from router_agent import RouterAgent
 
         return RouterAgent(chat_ctx=self.chat_ctx), "Transferring you back to general assistance."

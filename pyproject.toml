@@ -2,7 +2,7 @@
 name = "openai-clone"
 version = "0.1.0"
 description = "Real-time Voice & Deep Memory AI — Hybrid Graph-Vector RAG"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 readme = "Readme.md"
 license = { text = "MIT" }
 
@@ -32,12 +32,10 @@ dependencies = [
     "neo4j>=5.20.0",
     # --- Cache / Session ---
     "redis[hiredis]>=5.0.0",
-    # --- Voice ---
+    # --- LiveKit (token generation only — no otel conflict) ---
     "livekit>=0.17.0",
-    "livekit-agents>=0.12.0",
-    # --- Observability ---
-    "opentelemetry-api>=1.25.0",
-    "opentelemetry-sdk>=1.25.0",
+    "livekit-api>=1.0.0",
+    # --- Observability (let crewai pin its own otel version) ---
     "loguru>=0.7.0",
     "psycopg2-binary>=2.9.11",
 ]
@@ -51,6 +49,12 @@ dev = [
     "ruff>=0.6.0",
     "pre-commit>=3.8.0",
 ]
+demo = [
+    "gradio>=5.0.0",
+]
+# NOTE: livekit-agents is NOT listed here due to an opentelemetry-sdk
+# version conflict with crewai. The voice worker runs as a separate
+# process with its own venv. See agents/voice/requirements.txt.
 
 [tool.ruff]
 target-version = "py311"

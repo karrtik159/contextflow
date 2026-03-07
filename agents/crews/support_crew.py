@@ -1,16 +1,20 @@
 """
-Support Crew — handles complex knowledge queries.
+Support Crew — handles complex knowledge queries via Hybrid Graph-Vector RAG.
 
 Agents:
-  - Context_Gatherer: Queries pgvector + Neo4j in parallel.
+  - Context_Gatherer: Queries pgvector + Neo4j + user memories in parallel.
   - Answer_Synthesizer: Generates a personalized response from context.
 
-This crew is invoked by the RAG Voice Agent when a user asks a
-knowledge-intensive question.
+Usage:
+    result = SupportCrew().crew().kickoff(inputs={"query": "...", "user_id": "..."})
 """
 
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
+
+from agents.crews.tools.graph_search_tool import GraphSearchTool
+from agents.crews.tools.mem0_tool import MemorySearchTool
+from agents.crews.tools.vector_search_tool import VectorSearchTool
 
 
 @CrewBase
@@ -24,8 +28,11 @@ class SupportCrew:
             verbose=True,
             memory=True,
             max_iter=10,
-            # TODO: attach pgvector + Neo4j search tools here
-            tools=[],
+            tools=[
+                VectorSearchTool(),
+                GraphSearchTool(),
+                MemorySearchTool(),
+            ],
         )
 
     @agent
@@ -35,6 +42,7 @@ class SupportCrew:
             verbose=True,
             memory=True,
             max_iter=10,
+            tools=[MemorySearchTool()],  # Can look up user prefs while writing
         )
 
     @task

@@ -5,11 +5,14 @@ Agents:
   - Entity_Extractor: Parses conversation transcripts for facts.
   - Graph_Updater: Persists extracted facts into Neo4j via Mem0.
 
-This crew is invoked as a background task after a voice session ends.
+Usage (fire-and-forget as a background task):
+    MemoryCrew().crew().kickoff(inputs={"transcript": "...", "user_id": "..."})
 """
 
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
+
+from agents.crews.tools.mem0_tool import MemoryStoreTool
 
 
 @CrewBase
@@ -30,8 +33,7 @@ class MemoryCrew:
             config=self.agents_config["graph_updater"],
             verbose=True,
             max_iter=10,
-            # TODO: attach Mem0 service tool here
-            tools=[],
+            tools=[MemoryStoreTool()],
         )
 
     @task

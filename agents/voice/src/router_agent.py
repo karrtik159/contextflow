@@ -3,20 +3,13 @@ Router Voice Agent — the first agent a user speaks with.
 
 Low-latency greeting, natural small talk, and intent classification.
 If the user asks a knowledge-heavy question, hands off to RAGAgent.
-
-LiveKit Agents SDK 1.4+ — verified against docs.livekit.io (March 2026).
 """
 
 from livekit.agents import Agent, RunContext, function_tool
 
 
 class RouterAgent(Agent):
-    """
-    Greeting & Router — minimal context for maximum speed.
-
-    Tools:
-      - transfer_to_rag: hands off to the RAG agent for deep queries.
-    """
+    """Greeting & Router — minimal context for maximum speed."""
 
     def __init__(self) -> None:
         super().__init__(
@@ -34,7 +27,7 @@ Rules:
         )
 
     async def on_enter(self) -> None:
-        """Called when this agent becomes active (session start or handoff back)."""
+        """Called when this agent becomes active."""
         await self.session.generate_reply(instructions="Greet the user warmly and briefly. Offer your help.")
 
     @function_tool()
@@ -42,6 +35,6 @@ Rules:
         """Transfer the conversation to a Deep Knowledge specialist who can
         search the knowledge base, past conversations, and user memory to
         give a thorough, accurate answer."""
-        from agents.voice.rag_agent import RAGAgent
+        from rag_agent import RAGAgent
 
         return RAGAgent(chat_ctx=self.chat_ctx), "Let me connect you with our knowledge specialist."
