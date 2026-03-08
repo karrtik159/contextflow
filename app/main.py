@@ -22,10 +22,10 @@ from app.services.graph_search import close_driver as close_neo4j
 async def lifespan(app: FastAPI):
     """Startup / shutdown hooks."""
     logger.info("🚀 Starting {name} ({env})", name=settings.APP_NAME, env=settings.ENVIRONMENT.value)
-    init_telemetry()
+    # init_telemetry()
     yield
     logger.info("🛑 Shutting down...")
-    shutdown_telemetry()
+    # shutdown_telemetry()
     await close_neo4j()
 
 

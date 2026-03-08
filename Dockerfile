@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # ============================================================
 # Dockerfile — OpenAI Clone FastAPI Application
 # Optimized multi-stage build for maximum speed & minimal size
@@ -7,7 +8,7 @@
 # This stage ONLY installs Python deps. It is cached as long as
 # pyproject.toml doesn't change — making rebuilds near-instant
 # when only application code changes.
-FROM python:3.11-slim AS deps
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim AS deps
 
 WORKDIR /build
 
@@ -16,16 +17,15 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create venv once — reused across stages
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+# Copy dependency manifest + lockfile (cache-busts only when deps change)
+COPY pyproject.toml uv.lock ./
 
-# Copy ONLY dependency manifest (cache-busts only when deps change)
-COPY pyproject.toml ./
-
-# Install deps with aggressive caching flags
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir .
+# Install deps with uv sync + Docker cache mount for blazing fast rebuilds
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=cache,target=/root/.cache/pip \
+    uv sync
 
 
 # ── Stage 2: Source Preparation ──────────────────────────────
@@ -81,7 +81,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
 # Uvicorn with production settings
-CMD ["uvicorn", "app.main:app", \
+CMD ["/opt/venv/bin/uvicorn", "app.main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000", \
      "--workers", "4", \

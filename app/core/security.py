@@ -1,24 +1,39 @@
 """
-JWT token creation, verification, and password hashing utilities.
+JWT token creation, verification, password hashing, and authentication.
 
-Uses bcrypt directly (not passlib) to avoid compatibility issues
-with bcrypt>=4.1. Passwords are SHA-256 pre-hashed to sidestep
-bcrypt's 72-byte truncation limit.
+Features:
+  - bcrypt password hashing with SHA-256 pre-hash (sidesteps 72-byte limit)
+  - Access + Refresh token creation with embedded token type
+  - Token verification with blacklist checking
+  - authenticate_user() supports login by email OR username
+  - Token blacklisting for logout
 """
 
 import base64
 import hashlib
 from datetime import UTC, datetime, timedelta
+from enum import Enum
+from typing import Any, Literal
 
 import bcrypt
 from jose import JWTError, jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.schemas.token import TokenBlacklistCreate, TokenData
+from app.services.crud import token_blacklist_crud, user_crud
+
+
+class TokenType(str, Enum):
+    ACCESS = "access"
+    REFRESH = "refresh"
+
+
+# ── Password Hashing ────────────────────────────────────────
 
 
 def _prehash(password: str) -> bytes:
-    """
-    Pre-hash password with SHA-256 before bcrypt.
+    """Pre-hash password with SHA-256 before bcrypt.
 
     Returns base64-encoded bytes (always 44 chars, under bcrypt's 72-byte limit).
     """
@@ -36,10 +51,40 @@ def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(_prehash(plain), hashed.encode("ascii"))
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+# ── Authentication ───────────────────────────────────────────
+
+
+async def authenticate_user(
+    username_or_email: str,
+    password: str,
+    db: AsyncSession,
+) -> dict[str, Any] | Literal[False]:
+    """Authenticate by email or username. Returns user dict or False."""
+    if "@" in username_or_email:
+        db_user = await user_crud.get(db=db, email=username_or_email)
+    else:
+        db_user = await user_crud.get(db=db, username=username_or_email)
+
+    if not db_user:
+        return False
+
+    if not verify_password(password, db_user["hashed_password"]):
+        return False
+
+    return db_user
+
+
+# ── Token Creation ───────────────────────────────────────────
+
+
+def create_access_token(
+    data: dict[str, Any],
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Create a JWT access token."""
     to_encode = data.copy()
     expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "token_type": TokenType.ACCESS})
     return jwt.encode(
         to_encode,
         settings.SECRET_KEY.get_secret_value(),
@@ -47,7 +92,26 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     )
 
 
+def create_refresh_token(
+    data: dict[str, Any],
+    expires_delta: timedelta | None = None,
+) -> str:
+    """Create a JWT refresh token."""
+    to_encode = data.copy()
+    expire = datetime.now(UTC) + (expires_delta or timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS))
+    to_encode.update({"exp": expire, "token_type": TokenType.REFRESH})
+    return jwt.encode(
+        to_encode,
+        settings.SECRET_KEY.get_secret_value(),
+        algorithm=settings.ALGORITHM,
+    )
+
+
+# ── Token Verification ──────────────────────────────────────
+
+
 def decode_access_token(token: str) -> dict | None:
+    """Raw JWT decode — no blacklist check. Used by deps.py backwards compat."""
     try:
         return jwt.decode(
             token,
@@ -56,3 +120,58 @@ def decode_access_token(token: str) -> dict | None:
         )
     except JWTError:
         return None
+
+
+async def verify_token(
+    token: str,
+    expected_token_type: TokenType,
+    db: AsyncSession,
+) -> TokenData | None:
+    """Verify a JWT token: decode, check blacklist, validate type.
+
+    Returns TokenData if valid, None otherwise.
+    """
+    # 1. Check blacklist
+    is_blacklisted = await token_blacklist_crud.exists(db, token=token)
+    if is_blacklisted:
+        return None
+
+    # 2. Decode
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY.get_secret_value(),
+            algorithms=[settings.ALGORITHM],
+        )
+        username_or_email: str | None = payload.get("sub")
+        token_type: str | None = payload.get("token_type")
+
+        if username_or_email is None or token_type != expected_token_type:
+            return None
+
+        return TokenData(username_or_email=username_or_email)
+
+    except JWTError:
+        return None
+
+
+# ── Token Blacklisting ──────────────────────────────────────
+
+
+async def blacklist_token(token: str, db: AsyncSession) -> None:
+    """Add a single token to the blacklist."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY.get_secret_value(),
+            algorithms=[settings.ALGORITHM],
+        )
+        exp_timestamp = payload.get("exp")
+        if exp_timestamp is not None:
+            expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
+            await token_blacklist_crud.create(
+                db,
+                object=TokenBlacklistCreate(token=token, expires_at=expires_at),
+            )
+    except JWTError:
+        pass  # Token already invalid, no need to blacklist
