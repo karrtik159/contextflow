@@ -9,10 +9,9 @@ import asyncio
 from typing import Type
 
 from crewai.tools import BaseTool
-from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from app.core.config import settings
+from app.services.embeddings import embed_text
 
 
 class VectorSearchInput(BaseModel):
@@ -34,13 +33,7 @@ class VectorSearchTool(BaseTool):
 
     def _run(self, query: str, limit: int = 5) -> str:
         """Embed the query and search pgvector for similar messages."""
-        # 1. Generate embedding for the query
-        client = OpenAI(api_key=settings.OPENAI_API_KEY.get_secret_value())
-        response = client.embeddings.create(
-            input=query,
-            model="text-embedding-3-small",
-        )
-        query_embedding = response.data[0].embedding
+        query_embedding = embed_text(query)
 
         # 2. Run the async vector search synchronously (CrewAI tools are sync)
         from app.services.vector_search import search_similar_messages

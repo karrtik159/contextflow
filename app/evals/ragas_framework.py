@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field
 from ragas import EvaluationDataset, evaluate
-from ragas.embeddings import LangchainEmbeddingsWrapper
+from ragas.embeddings import HuggingFaceEmbeddings, LangchainEmbeddingsWrapper
 from ragas.llms import LangchainLLMWrapper
 from ragas.metrics.base import Metric
 from ragas.metrics.collections import (
@@ -27,6 +27,9 @@ from ragas.metrics.collections import (
     ContextRecall,
     Faithfulness,
 )
+
+from app.core.config import settings
+from app.services.llm_provider import get_openai_compatible_kwargs
 
 METRIC_NAME_ORDER = [
     "answer_relevancy",
@@ -129,7 +132,7 @@ def build_metrics(
     metric_names: list[str],
     *,
     llm: LangchainLLMWrapper,
-    embeddings: LangchainEmbeddingsWrapper,
+    embeddings: Any,
 ) -> list[Metric]:
     metric_registry: dict[str, Metric] = {
         "answer_relevancy": AnswerRelevancy(llm=llm, embeddings=embeddings),
@@ -141,21 +144,23 @@ def build_metrics(
     return [metric_registry[name] for name in metric_names]
 
 
-def build_judges() -> tuple[LangchainLLMWrapper, LangchainEmbeddingsWrapper]:
+def build_judges() -> tuple[LangchainLLMWrapper, Any]:
     from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
-    llm_model = os.getenv("RAGAS_EVAL_LLM", "gpt-4.1-mini")
-    embedding_model = os.getenv("RAGAS_EVAL_EMBEDDING_MODEL", "text-embedding-3-small")
 
     llm = LangchainLLMWrapper(
         ChatOpenAI(
-            model=llm_model,
+            model=os.getenv("RAGAS_EVAL_LLM", settings.LLM_MODEL),
             temperature=0,
+            **get_openai_compatible_kwargs(),
         )
     )
-    embeddings = LangchainEmbeddingsWrapper(
-        OpenAIEmbeddings(model=embedding_model)
-    )
+
+    embedding_model = os.getenv("RAGAS_EVAL_EMBEDDING_MODEL", settings.EMBEDDING_MODEL)
+    if settings.EMBEDDING_PROVIDER == "huggingface":
+        embeddings = HuggingFaceEmbeddings(model=embedding_model)
+        return llm, embeddings
+
+    embeddings = LangchainEmbeddingsWrapper(OpenAIEmbeddings(model=embedding_model, **get_openai_compatible_kwargs()))
     return llm, embeddings
 
 

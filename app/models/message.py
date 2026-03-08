@@ -30,8 +30,9 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     token_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # pgvector embedding column (384 dims = Hugging Face sentence-transformers)
     # pgvector embedding column (1536 dims = OpenAI text-embedding-3-small)
-    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=True)
+    embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now())
 
