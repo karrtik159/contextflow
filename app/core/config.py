@@ -124,10 +124,19 @@ class FirstUserSettings(BaseSettings):
 
 
 # ── AI Services ─────────────────────────────────────────────
-class OpenAISettings(BaseSettings):
+class AISettings(BaseSettings):
+    # LLM Provider: "openai" | "google" | "openrouter"
+    LLM_PROVIDER: str = "openai"
+    LLM_MODEL: str = "gpt-4.1-mini"
+
+    # OpenAI / OpenRouter
     OPENAI_API_KEY: SecretStr = SecretStr("")
     OPENAI_BASE_URL: str = ""
-    LLM_MODEL: str = "gpt-4.1-mini"
+
+    # Google Gemini
+    GOOGLE_API_KEY: SecretStr = SecretStr("")
+
+    # Embeddings
     EMBEDDING_PROVIDER: str = "openai"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIMENSIONS: int = 1536
@@ -168,7 +177,7 @@ class Settings(
     DefaultRateLimitSettings,
     CORSSettings,
     FirstUserSettings,
-    OpenAISettings,
+    AISettings,
     LiveKitSettings,
     Mem0Settings,
     ObservabilitySettings,
