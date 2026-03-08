@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
-from app.core.config import settings
+from app.services.embeddings import embed_text_async
 from app.services.vector_search import search_similar_messages
 
 router = APIRouter(prefix="/context", tags=["Context"])
@@ -46,18 +46,13 @@ async def prefetch_context(
     performs a raw pgvector HNSW search, and formats the context for direct
     LLM injection via LiveKit's `on_user_turn_completed`.
     """
-    from openai import AsyncOpenAI
-
     user_uuid = _parse_uuid(request.user_id)
     session_uuid = _parse_uuid(request.session_id)
     if user_uuid is None and session_uuid is None:
         return {"context": "No scoped conversation context is available yet."}
 
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY.get_secret_value())
-
     try:
-        response = await client.embeddings.create(input=request.query, model="text-embedding-3-small")
-        query_embedding = response.data[0].embedding
+        query_embedding = await embed_text_async(request.query)
 
         similar_messages = await search_similar_messages(
             db=db,

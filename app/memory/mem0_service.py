@@ -9,16 +9,49 @@ from mem0 import Memory
 from app.core.config import settings
 
 
+def _build_mem0_llm_config() -> dict:
+    config = {
+        "api_key": settings.OPENAI_API_KEY.get_secret_value(),
+        "model": settings.LLM_MODEL,
+    }
+    if settings.OPENAI_BASE_URL:
+        config["openai_base_url"] = settings.OPENAI_BASE_URL
+    return {
+        "provider": "openai",
+        "config": config,
+    }
+
+
+def _build_mem0_embedding_config() -> dict:
+    if settings.EMBEDDING_PROVIDER == "huggingface":
+        config = {
+            "model": settings.EMBEDDING_MODEL,
+        }
+        api_key = settings.HUGGINGFACE_API_KEY.get_secret_value()
+        if api_key:
+            config["api_key"] = api_key
+        return {
+            "provider": "huggingface",
+            "config": config,
+        }
+
+    config = {
+        "api_key": settings.OPENAI_API_KEY.get_secret_value(),
+        "model": settings.EMBEDDING_MODEL,
+    }
+    if settings.OPENAI_BASE_URL:
+        config["openai_base_url"] = settings.OPENAI_BASE_URL
+    return {
+        "provider": "openai",
+        "config": config,
+    }
+
+
 def _build_mem0_config() -> dict:
     """Build Mem0 configuration dict."""
     return {
-        "llm": {
-            "provider": "openai",
-            "config": {
-                "api_key": settings.OPENAI_API_KEY.get_secret_value(),
-                "model": "gpt-4o-mini",
-            },
-        },
+        "llm": _build_mem0_llm_config(),
+        "embedder": _build_mem0_embedding_config(),
         "vector_store": {
             "provider": "pgvector",
             "config": {

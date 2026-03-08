@@ -15,6 +15,7 @@ from crewai.project import CrewBase, agent, crew, task
 from agents.crews.tools.graph_search_tool import GraphSearchTool
 from agents.crews.tools.mem0_tool import MemorySearchTool
 from agents.crews.tools.vector_search_tool import VectorSearchTool
+from app.services.llm_provider import build_crewai_llm
 
 
 @CrewBase
@@ -31,6 +32,7 @@ class SupportCrew:
             verbose=True,
             memory=True,
             max_iter=10,
+            llm=build_crewai_llm(),
             tools=[
                 VectorSearchTool(),
                 GraphSearchTool(),
@@ -45,6 +47,7 @@ class SupportCrew:
             verbose=True,
             memory=True,
             max_iter=10,
+            llm=build_crewai_llm(),
             tools=[MemorySearchTool()],  # Can look up user prefs while writing
         )
 

@@ -13,6 +13,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 
 from agents.crews.tools.mem0_tool import MemoryStoreTool
+from app.services.llm_provider import build_crewai_llm
 
 
 @CrewBase
@@ -28,6 +29,7 @@ class MemoryCrew:
             config=self.agents_config["entity_extractor"],
             verbose=True,
             max_iter=10,
+            llm=build_crewai_llm(),
         )
 
     @agent
@@ -36,6 +38,7 @@ class MemoryCrew:
             config=self.agents_config["graph_updater"],
             verbose=True,
             max_iter=10,
+            llm=build_crewai_llm(),
             tools=[MemoryStoreTool()],
         )
 

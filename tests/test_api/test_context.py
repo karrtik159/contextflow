@@ -7,16 +7,9 @@ from app.api.v1.context import PrefetchRequest, _parse_uuid, prefetch_context
 
 
 class _FakeEmbeddingsClient:
-    async def create(self, input: str, model: str):
-        assert input == "where did we leave off?"
-        assert model == "text-embedding-3-small"
-        return SimpleNamespace(data=[SimpleNamespace(embedding=[0.1, 0.2, 0.3])])
-
-
-class _FakeOpenAIClient:
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.embeddings = _FakeEmbeddingsClient()
+    async def __call__(self, text: str):
+        assert text == "where did we leave off?"
+        return [0.1, 0.2, 0.3]
 
 
 @pytest.mark.asyncio
@@ -37,7 +30,8 @@ async def test_prefetch_context_scopes_results_by_user_and_session(monkeypatch):
         ]
 
     monkeypatch.setattr("app.api.v1.context.search_similar_messages", fake_search_similar_messages)
-    monkeypatch.setattr("openai.AsyncOpenAI", _FakeOpenAIClient)
+    fake_embedder = _FakeEmbeddingsClient()
+    monkeypatch.setattr("app.api.v1.context.embed_text_async", fake_embedder)
 
     response = await prefetch_context(
         PrefetchRequest(
@@ -62,8 +56,6 @@ async def test_prefetch_context_scopes_results_by_user_and_session(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_prefetch_context_requires_scoped_identifiers(monkeypatch):
-    monkeypatch.setattr("openai.AsyncOpenAI", _FakeOpenAIClient)
-
     response = await prefetch_context(
         PrefetchRequest(
             query="where did we leave off?",

@@ -126,6 +126,12 @@ class FirstUserSettings(BaseSettings):
 # ── AI Services ─────────────────────────────────────────────
 class OpenAISettings(BaseSettings):
     OPENAI_API_KEY: SecretStr = SecretStr("")
+    OPENAI_BASE_URL: str = ""
+    LLM_MODEL: str = "gpt-4.1-mini"
+    EMBEDDING_PROVIDER: str = "openai"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSIONS: int = 1536
+    HUGGINGFACE_API_KEY: SecretStr = SecretStr("")
 
 
 class LiveKitSettings(BaseSettings):
