@@ -22,8 +22,11 @@ async def find_related_entities(entity_name: str, max_hops: int = 2) -> list[dic
     Traverse the knowledge graph to find entities related to `entity_name`
     within `max_hops` relationship hops.
     """
-    query = """
-    MATCH path = (start {name: $name})-[*1..$hops]-(end)
+    # Neo4j requires a literal int for variable-length path patterns,
+    # so we interpolate max_hops directly (already clamped to 1-3 by caller).
+    safe_hops = max(1, min(int(max_hops), 3))
+    query = f"""
+    MATCH path = (start {{name: $name}})-[*1..{safe_hops}]-(end)
     RETURN
         start.name   AS entity,
         [r IN relationships(path) | type(r)] AS relationships,
@@ -31,7 +34,7 @@ async def find_related_entities(entity_name: str, max_hops: int = 2) -> list[dic
     LIMIT 20
     """
     async with _driver.session() as session:
-        result = await session.run(query, name=entity_name, hops=max_hops)
+        result = await session.run(query, name=entity_name)
         return [record.data() async for record in result]
 
 
