@@ -14,9 +14,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.db import get_db
-from app.core.security import decode_access_token
 from app.services.crud import user_crud
 
 # ── OAuth2 scheme — extracts Bearer token from Authorization header ──
@@ -33,25 +31,25 @@ async def get_current_user(
     db: DBSession,
 ) -> dict[str, Any]:
     """
-    Decode JWT, look up the user, and return their data as a dict.
-    Raises 401 if the token is invalid or the user doesn't exist.
+    Verify JWT (access type, not blacklisted), look up the user,
+    and return their data as a dict.
+    Raises 401 if the token is invalid, blacklisted, or the user doesn't exist.
     """
-    payload = decode_access_token(token)
-    if payload is None:
+    from app.core.security import TokenType, verify_token
+
+    token_data = await verify_token(token, TokenType.ACCESS, db)
+    if token_data is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="Invalid, expired, or revoked token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    user_id: str | None = payload.get("sub")
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing subject claim",
-        )
-
-    user = await user_crud.get(db, id=user_id)
+    # JWT sub claim stores the username
+    user = await user_crud.get(db, username=token_data.username_or_email)
+    if not user:
+        # Fallback: try by email (in case sub was set to email)
+        user = await user_crud.get(db, email=token_data.username_or_email)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -39,8 +39,9 @@ WORKDIR /app
 COPY pyproject.toml ./
 RUN mkdir -p src
 
-# Install Python dependencies using UV's lock file (or pyproject if no lock)
-RUN uv sync
+# Install Python dependencies with Docker cache mount for fast rebuilds
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync
 
 # Copy all remaining application files into the container
 COPY . .
@@ -55,8 +56,9 @@ USER appuser
 ENV HF_HUB_DISABLE_PROGRESS_BARS=1
 
 # Pre-download any ML models or files the agent needs
-# The LiveKit CLI handles invoking plugins (like silero) to download their models
-RUN uv run src/agent.py download-files || true
+# Cache the HuggingFace hub so model downloads survive rebuilds
+RUN --mount=type=cache,target=/app/.cache/huggingface \
+    uv run src/agent.py download-files || true
 
 # Run the application using UV
 CMD ["uv", "run", "python", "src/agent.py", "dev"]
