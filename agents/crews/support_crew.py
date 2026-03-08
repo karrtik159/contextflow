@@ -15,7 +15,7 @@ from crewai.project import CrewBase, agent, crew, task
 from agents.crews.tools.graph_search_tool import GraphSearchTool
 from agents.crews.tools.mem0_tool import MemorySearchTool
 from agents.crews.tools.vector_search_tool import VectorSearchTool
-from app.services.llm_provider import build_crewai_llm
+from app.services.llm_provider import build_crewai_embedder, build_crewai_llm
 
 
 @CrewBase
@@ -30,7 +30,6 @@ class SupportCrew:
         return Agent(
             config=self.agents_config["context_gatherer"],
             verbose=True,
-            memory=True,
             max_iter=10,
             llm=build_crewai_llm(),
             tools=[
@@ -45,10 +44,9 @@ class SupportCrew:
         return Agent(
             config=self.agents_config["answer_synthesizer"],
             verbose=True,
-            memory=True,
             max_iter=10,
             llm=build_crewai_llm(),
-            tools=[MemorySearchTool()],  # Can look up user prefs while writing
+            tools=[MemorySearchTool()],
         )
 
     @task
@@ -69,5 +67,4 @@ class SupportCrew:
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
-            memory=True,
         )

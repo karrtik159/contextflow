@@ -62,3 +62,39 @@ def build_crewai_llm() -> LLM:
         )
 
     raise ValueError(f"Unsupported LLM_PROVIDER: '{provider}'. Supported: 'openai', 'google', 'openrouter'")
+
+
+def build_crewai_embedder() -> dict:
+    """Build the embedder config dict for CrewAI's internal memory system.
+
+    CrewAI's ``Crew(memory=True)`` defaults to OpenAI embeddings.
+    This function returns an ``embedder`` dict that matches the
+    configured EMBEDDING_PROVIDER so CrewAI's memory works with
+    whichever embedding backend is active.
+
+    Usage:
+        Crew(memory=True, embedder=build_crewai_embedder())
+    """
+    provider = settings.EMBEDDING_PROVIDER.lower().strip()
+
+    if provider == "openai":
+        config: dict = {
+            "model": settings.EMBEDDING_MODEL,
+        }
+        api_key = settings.OPENAI_API_KEY.get_secret_value()
+        if api_key:
+            config["api_key"] = api_key
+        if settings.OPENAI_BASE_URL:
+            config["api_base"] = settings.OPENAI_BASE_URL
+        return {"provider": "openai", "config": config}
+
+    if provider == "huggingface":
+        return {
+            "provider": "huggingface",
+            "config": {"model": settings.EMBEDDING_MODEL},
+        }
+    
+    raise ValueError(
+        f"Unsupported EMBEDDING_PROVIDER for CrewAI memory: '{provider}'. "
+        f"Supported: 'openai', 'huggingface'"
+    )
