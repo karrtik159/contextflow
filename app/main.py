@@ -1,45 +1,24 @@
 """
 FastAPI application entry point.
 
-Lifespan events handle startup/shutdown for:
-  - Database engine
-  - Neo4j driver
-  - Redis (future)
+Uses `create_application` initialized with modular settings
+and a fully configured lifespan from `app.core.setup.py`.
 """
-
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from loguru import logger
 
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.telemetry import init_telemetry, shutdown_telemetry
-from app.services.graph_search import close_driver as close_neo4j
+from app.core.setup import create_application
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Startup / shutdown hooks."""
-    logger.info("🚀 Starting {name} ({env})", name=settings.APP_NAME, env=settings.ENVIRONMENT.value)
-    # init_telemetry()
-    yield
-    logger.info("🛑 Shutting down...")
-    # shutdown_telemetry()
-    await close_neo4j()
-
-
-app = FastAPI(
-    title=settings.APP_NAME,
-    description=settings.APP_DESCRIPTION or "Real-time Voice & Deep Memory AI",
-    version=settings.APP_VERSION or "0.1.0",
-    lifespan=lifespan,
-    debug=(settings.ENVIRONMENT == "local"),
+app = create_application(
+    router=api_router,
+    settings=settings,
+    create_tables_on_start=True
 )
-
-app.include_router(api_router)
-
 
 @app.get("/health", tags=["Health"])
 async def health_check():
+    """Application health endpoint."""
     return {"status": "healthy", "environment": settings.ENVIRONMENT.value}

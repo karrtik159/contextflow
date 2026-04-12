@@ -36,10 +36,16 @@ class GraphSearchTool(BaseTool):
         async def _search():
             return await find_related_entities(entity_name, max_hops=min(max_hops, 3))
 
+        # CrewAI tools run in threads that may already have an event loop.
+        # asyncio.run() would crash with "This event loop is already running".
+        # Create a dedicated loop for this call instead.
+        loop = asyncio.new_event_loop()
         try:
-            results = asyncio.run(_search())
+            results = loop.run_until_complete(_search())
         except Exception as e:
             return f"Graph search error: {e}"
+        finally:
+            loop.close()
 
         if not results:
             return f"No entities related to '{entity_name}' found in the knowledge graph."

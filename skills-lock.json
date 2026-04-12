@@ -26,6 +26,11 @@
       "sourceType": "github",
       "computedHash": "d709ee665f549428810436f97309bfcee237f5ce7801f4c0eecaf6445085f48a"
     },
+    "mlops-engineer": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "333c438733aa317c5697acdfd8bcd59ff0acb7bdeca2d68af993758ccf219544"
+    },
     "multi-stage-dockerfile": {
       "source": "github/awesome-copilot",
       "sourceType": "github",
@@ -45,6 +50,11 @@
       "source": "bobmatnyc/claude-mpm-skills",
       "sourceType": "github",
       "computedHash": "b5b76a23c632127fadc8b3181356095baf9c953c39dfa3cf59c9ea6663d0b0c9"
+    },
+    "senior-ml-engineer": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "computedHash": "7d570f11118b12a8be7eb893439fc3baa280aba625b7a96e33302cb4501156b7"
     }
   }
 }

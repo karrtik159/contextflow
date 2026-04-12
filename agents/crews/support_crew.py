@@ -67,4 +67,8 @@ class SupportCrew:
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
+            memory=True,
+            embedder=build_crewai_embedder(),
+            cache=True,
+            max_execution_time=120,  # 2-min hard timeout
         )
