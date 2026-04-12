@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "skills": {
+    "code-simplifier": {
+      "source": "getsentry/skills",
+      "sourceType": "github",
+      "computedHash": "2b379a3226c7223ca300845aec488d0ae7d6c8a24a78d234ca405fbeb9078ea6"
+    },
+    "crewai-multi-agent": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "computedHash": "487d8dfd3f3cbe34786c0e671fe5898969b617213d6395ccdad87e4d64429d46"
+    },
+    "fastapi-pro": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "0c7fc14bb01e55a801b95d3261121596c26dd49fcd8bde203d298c22fefb1d1a"
+    },
+    "huggingface-tokenizers": {
+      "source": "davila7/claude-code-templates",
+      "sourceType": "github",
+      "computedHash": "c49d33eb8bf3624aa81b7a842a4fbac99f606be07724501a148da173fa5b0b9a"
+    },
+    "livekit-agents": {
+      "source": "livekit/agent-skills",
+      "sourceType": "github",
+      "computedHash": "d709ee665f549428810436f97309bfcee237f5ce7801f4c0eecaf6445085f48a"
+    },
+    "multi-stage-dockerfile": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "698bf93a84dae18fd7bd0b1d35c21427307fde78fbdf4624be9726f5f98189ca"
+    },
+    "postgres": {
+      "source": "planetscale/database-skills",
+      "sourceType": "github",
+      "computedHash": "903d0138d07754378280cec5172f7364e35226260cccc05d8e41aa9cd25e8a46"
+    },
+    "postgresql-optimization": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "8022448de70ba9a485e3b5bce34c5bbc644f93eb39b68431c9f7dabcf03aeb09"
+    },
+    "pydantic": {
+      "source": "bobmatnyc/claude-mpm-skills",
+      "sourceType": "github",
+      "computedHash": "b5b76a23c632127fadc8b3181356095baf9c953c39dfa3cf59c9ea6663d0b0c9"
+    }
+  }
+}
