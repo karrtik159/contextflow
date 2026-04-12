@@ -13,7 +13,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 
 from agents.crews.tools.mem0_tool import MemoryStoreTool
-from app.services.llm_provider import build_crewai_llm
+from app.services.llm_provider import build_crewai_embedder, build_crewai_llm
 
 
 @CrewBase
@@ -60,4 +60,8 @@ class MemoryCrew:
             tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
+            memory=True,
+            embedder=build_crewai_embedder(),
+            cache=True,
+            max_execution_time=60,  # 1-min timeout (background job)
         )

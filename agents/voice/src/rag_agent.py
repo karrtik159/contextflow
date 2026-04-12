@@ -6,6 +6,12 @@ endpoint over HTTP for Hybrid Graph-Vector RAG, and streams the answer via TTS.
 
 Architecture:
   Voice Worker (livekit-agents) --HTTP--> FastAPI (crewai) ---> pgvector + Neo4j + Mem0
+
+The RAG backend now has built-in intent routing:
+  - Simple chat → direct LLM (sub-second)
+  - Knowledge queries → full CrewAI orchestration
+So the voice agent delegates routing to the backend and only pre-fetches
+context for queries the backend identifies as needing RAG.
 """
 from livekit.agents import Agent, RunContext, function_tool
 from livekit.agents.llm import ChatContext, ChatMessage
@@ -56,7 +62,12 @@ Rules:
         new_message: ChatMessage,
     ) -> None:
         """
-        Inject scoped conversational memory before the LLM responds.
+        Eagerly pre-fetch context from the backend before the LLM responds.
+
+        The FastAPI backend handles intent routing internally, so when this
+        context is injected the LLM gets relevant knowledge for free.
+        For simple chat, the prefetch returns minimal/no context and the
+        LLM answers naturally without CrewAI overhead.
         """
         user_query = new_message.text_content
         if not user_query:

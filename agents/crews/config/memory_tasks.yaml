@@ -2,22 +2,27 @@
 
 extract_entities:
   description: >
-    Analyze the following conversation transcript and extract all
-    notable entities, user preferences, and relationships:
+    Analyze the following conversation transcript for user "{user_id}"
+    and extract all notable entities, user preferences, and relationships:
     ---
     {transcript}
     ---
+    Focus on facts that would be useful for future personalization:
+    names, technologies, preferences, opinions, and relationships.
   expected_output: >
     A structured JSON list of extracted facts, each with:
     entity_name, entity_type, relationship (optional), and confidence_score.
+    Only include facts with confidence_score >= 0.7.
   agent: entity_extractor
 
 update_graph:
   description: >
-    Take the extracted entities and persist them into the user's
-    knowledge graph via the Mem0 service. Create new nodes for unknown
-    entities and update existing ones with new relationships.
+    Take the extracted entities and persist them into user "{user_id}"'s
+    knowledge graph via the Mem0 service. Use user_id="{user_id}" when
+    calling the memory_store tool.
+    Create new nodes for unknown entities and update existing ones with
+    new relationships. Skip low-confidence facts.
   expected_output: >
     A summary of graph operations performed: nodes created, edges added,
-    and any conflicts resolved.
+    and any conflicts resolved. Include the user_id for traceability.
   agent: graph_updater

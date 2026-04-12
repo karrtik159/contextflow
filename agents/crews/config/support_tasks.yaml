@@ -3,20 +3,27 @@
 retrieve_context:
   description: >
     Search the vector database (pgvector) and the knowledge graph (Neo4j)
-    in parallel for the user query: "{query}".
-    Combine the results using Reciprocal Rank Fusion (RRF) and return
+    for the user query: "{query}".
+    Also search the user's personal memory using the memory_search tool
+    with user_id="{user_id}" to find their preferences and past context.
+    Combine all results using Reciprocal Rank Fusion (RRF) and return
     the top 5 most relevant context snippets.
   expected_output: >
     A ranked list of up to 5 context snippets with source labels
-    (vector_store or graph_db) and relevance scores.
+    (vector_store, graph_db, or user_memory) and relevance scores.
   agent: context_gatherer
 
 synthesize_answer:
   description: >
-    Using the retrieved context and the user's memory profile,
-    generate a clear, accurate, and concise answer to: "{query}".
+    Using the retrieved context and the user's memory profile
+    (user_id: "{user_id}"), generate a clear, accurate, and
+    personalized answer to: "{query}".
+    If user memories were found, incorporate their preferences and
+    past interactions to tailor the response.
     Keep the answer conversational and under 150 words (optimized for voice).
+    If no relevant context was found, say so honestly rather than guessing.
   expected_output: >
     A natural-sounding answer of at most 150 words that directly
-    addresses the user's question, incorporating personalized context.
+    addresses the user's question, incorporating personalized context
+    when available. If context was insufficient, indicate uncertainty.
   agent: answer_synthesizer
