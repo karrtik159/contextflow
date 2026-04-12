@@ -176,6 +176,4 @@ pyrightconfig.json
 *.rdb
 
 # End of https://www.toptal.com/developers/gitignore/api/python,redis
-.agents/
-skills-lock.json
 alembic/versions/
