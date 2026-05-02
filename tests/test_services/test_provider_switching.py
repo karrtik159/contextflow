@@ -5,6 +5,7 @@ from app.services.llm_provider import build_crewai_llm
 
 
 def test_build_crewai_llm_uses_configured_model(monkeypatch):
+    monkeypatch.setattr("app.services.llm_provider.settings.LLM_PROVIDER", "openrouter")
     monkeypatch.setattr("app.services.llm_provider.settings.LLM_MODEL", "openai/gpt-4o-mini")
     monkeypatch.setattr("app.services.llm_provider.settings.OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
     monkeypatch.setattr(

@@ -12,7 +12,7 @@ from app.evals.ragas_framework import (
 def test_load_eval_cases_reads_fixture():
     cases = load_eval_cases(Path("tests/test_eval/fixtures/ragas_cases.json"))
 
-    assert len(cases) == 2
+    assert len(cases) == 10
     assert cases[0].user_input == "How does the voice worker reach the backend?"
     assert cases[0].response is None
 
