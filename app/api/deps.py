@@ -18,7 +18,7 @@ from app.core.db import get_db
 from app.services.crud import user_crud
 
 # ── OAuth2 scheme — extracts Bearer token from Authorization header ──
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/login")
 
 
 # ── Database Session ─────────────────────────────────────────────────
