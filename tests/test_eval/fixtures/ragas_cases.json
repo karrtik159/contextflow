@@ -14,5 +14,69 @@
     "reference_contexts": [
       "The Voice Agent runs as a completely isolated process to avoid opentelemetry-sdk mismatches between crewai and livekit-agents."
     ]
+  },
+  {
+    "user_input": "How does the semantic cache work?",
+    "user_id": "eval-user",
+    "reference": "The semantic cache stores normalized query embeddings in Neo4j with a cosine similarity vector index. On each query, the system generates an embedding, searches for matches above 0.95 similarity, and returns the cached answer if found.",
+    "reference_contexts": [
+      "Neo4j vector index with cosine similarity is used for semantic cache lookups. Queries are sanitized, embedded, and matched against stored cache nodes."
+    ]
+  },
+  {
+    "user_input": "What happens when a query contains personal information like an email address?",
+    "user_id": "eval-user",
+    "reference": "The sanitization layer detects PII using regex patterns and masks it with tags like [EMAIL]. The query is then flagged for user-isolated caching, meaning the cached result is only accessible to that specific user.",
+    "reference_contexts": [
+      "PII_REGEX_PATTERNS detect EMAIL, PHONE, SSN, CREDIT_CARD, IPV4. When PII is found, requires_isolation is set to True and cache entries are scoped to the user_id."
+    ]
+  },
+  {
+    "user_input": "Explain the intent classification system",
+    "user_id": "eval-user",
+    "reference": "Intent classification uses a two-layer strategy: Layer 1 is a fast keyword heuristic that catches obvious greetings and small talk in 0ms. Layer 2 uses a lightweight LLM call with a system prompt that returns RAG or CHAT.",
+    "reference_contexts": [
+      "classify_intent uses SIMPLE_PATTERNS set for keyword matching and falls back to an LLM classification call with temperature=0 and max_tokens=10."
+    ]
+  },
+  {
+    "user_input": "How does the CrewAI SupportCrew process a knowledge query?",
+    "user_id": "eval-user",
+    "reference": "The SupportCrew runs two agents sequentially: a Context Gatherer that searches pgvector, Neo4j, and user memories in parallel, followed by an Answer Synthesizer that generates a personalized response from the retrieved context.",
+    "reference_contexts": [
+      "SupportCrew uses context_gatherer with VectorSearchTool, GraphSearchTool, MemorySearchTool, followed by answer_synthesizer with MemorySearchTool. Process is sequential."
+    ]
+  },
+  {
+    "user_input": "What is the fallback behavior when the RAG pipeline fails?",
+    "user_id": "eval-user",
+    "reference": "When the SupportCrew fails or returns an empty result, the system gracefully degrades to a direct LLM call, returning the response with routed_to set to direct_fallback.",
+    "reference_contexts": [
+      "If SupportCrew raises an exception or returns less than 5 characters, the endpoint falls back to direct_chat() and sets routed_to to direct_fallback."
+    ]
+  },
+  {
+    "user_input": "How are user memories used for personalization?",
+    "user_id": "eval-user",
+    "reference": "User memories are stored via Mem0 backed by pgvector and Neo4j. The MemorySearchTool allows agents to search a user's past preferences and conversation history using their user_id. The MemoryCrew runs as a background task to extract entities from conversations and persist them.",
+    "reference_contexts": [
+      "MemorySearchTool searches Mem0 with user_id. MemoryCrew extracts entities and persists them via MemoryStoreTool. Both crews now have memory=True and embedder configured."
+    ]
+  },
+  {
+    "user_input": "What embedding model is used and how is it loaded?",
+    "user_id": "eval-user",
+    "reference": "The system uses sentence-transformers/all-MiniLM-L6-v2 loaded locally via SentenceTransformer. The model is pre-loaded during FastAPI lifespan startup with thread-safe initialization using double-checked locking.",
+    "reference_contexts": [
+      "init_local_embedding_model() is called during lifespan startup. _get_hf_encoder uses threading.Lock for double-checked locking. Model dimension is validated against EMBEDDING_DIMENSIONS in config."
+    ]
+  },
+  {
+    "user_input": "How does the system handle concurrent embedding requests?",
+    "user_id": "eval-user",
+    "reference": "Embedding generation runs in a background thread via asyncio.to_thread() to avoid blocking the FastAPI event loop. The SentenceTransformer model is loaded once globally with thread-safe initialization and shared across all requests.",
+    "reference_contexts": [
+      "_get_embedding uses asyncio.to_thread(_encode_sync, text). The model is initialized with threading.Lock double-checked locking pattern."
+    ]
   }
 ]

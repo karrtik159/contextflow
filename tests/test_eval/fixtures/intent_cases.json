@@ -1,0 +1,20 @@
+[
+  {"input": "hi", "expect_heuristic": false, "reason": "greeting"},
+  {"input": "hello", "expect_heuristic": false, "reason": "greeting"},
+  {"input": "hey", "expect_heuristic": false, "reason": "greeting"},
+  {"input": "thanks", "expect_heuristic": false, "reason": "gratitude"},
+  {"input": "thank you", "expect_heuristic": false, "reason": "gratitude"},
+  {"input": "bye", "expect_heuristic": false, "reason": "farewell"},
+  {"input": "good morning", "expect_heuristic": false, "reason": "greeting phrase"},
+  {"input": "how are you", "expect_heuristic": false, "reason": "small talk"},
+  {"input": "what's up", "expect_heuristic": false, "reason": "small talk"},
+  {"input": "ok", "expect_heuristic": false, "reason": "acknowledgment"},
+  {"input": "lol", "expect_heuristic": false, "reason": "casual"},
+  {"input": "hi there friend", "expect_heuristic": false, "reason": "short greeting with first word match"},
+  {"input": "hey how are you", "expect_heuristic": null, "reason": "4 words - passes to LLM despite greeting start"},
+  {"input": "What is quantum computing?", "expect_heuristic": null, "reason": "knowledge query - should NOT be caught by heuristic"},
+  {"input": "Explain the transformer architecture in detail", "expect_heuristic": null, "reason": "knowledge query - passes to LLM"},
+  {"input": "How does Neo4j handle vector indexes?", "expect_heuristic": null, "reason": "technical query - passes to LLM"},
+  {"input": "Compare PostgreSQL and MongoDB for RAG", "expect_heuristic": null, "reason": "comparison query - passes to LLM"},
+  {"input": "Hello, can you explain machine learning?", "expect_heuristic": null, "reason": "greeting + knowledge - 4+ words, passes to LLM"}
+]

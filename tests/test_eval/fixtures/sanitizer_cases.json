@@ -1,0 +1,14 @@
+[
+  {"input": "Send email to john@example.com", "expected_pii": ["EMAIL"], "expected_isolation": true, "expected_normalized_contains": "[email]"},
+  {"input": "Call me at (555) 234-5678 please", "expected_pii": ["PHONE"], "expected_isolation": true, "expected_normalized_contains": "[phone]"},
+  {"input": "My SSN is 123-45-6789", "expected_pii": ["SSN"], "expected_isolation": true, "expected_normalized_contains": "[ssn]"},
+  {"input": "Pay with 4111111111111111", "expected_pii": ["CREDIT_CARD"], "expected_isolation": true, "expected_normalized_contains": "[credit_card]"},
+  {"input": "Server is at 192.168.1.100", "expected_pii": ["IPV4"], "expected_isolation": true, "expected_normalized_contains": "[ipv4]"},
+  {"input": "Email john@test.com and call (555) 234-5678", "expected_pii": ["EMAIL", "PHONE"], "expected_isolation": true},
+  {"input": "What is machine learning?", "expected_pii": [], "expected_isolation": false},
+  {"input": "Hey, can you tell me about neural networks?", "expected_pii": [], "expected_isolation": false, "expected_normalized": "about neural networks?"},
+  {"input": "Hello, please explain transformers", "expected_pii": [], "expected_isolation": false, "expected_normalized": "transformers"},
+  {"input": "   lots   of   spaces   here   ", "expected_pii": [], "expected_isolation": false, "expected_normalized": "lots of spaces here"},
+  {"input": "", "skip": true, "reason": "empty string edge case handled by Pydantic min_length"},
+  {"input": "Tell me about émigré patterns in français", "expected_pii": [], "expected_isolation": false}
+]
