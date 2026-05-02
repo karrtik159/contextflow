@@ -7,9 +7,11 @@ The heuristic is extracted as a pure function to test independently.
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from app.services.llm_provider import classify_intent
 
 # ── Extract the heuristic logic as a testable pure function ──
 
@@ -96,6 +98,32 @@ def test_whitespace_handling():
     """Leading/trailing whitespace should not affect classification."""
     assert _heuristic_classify("  hi  ") is False
     assert _heuristic_classify("  hello  ") is False
+    assert _heuristic_classify("   ") is None
+
+
+@pytest.mark.asyncio
+async def test_classify_intent_handles_whitespace_only_query(monkeypatch):
+    """Whitespace-only queries should not crash before the LLM fallback."""
+
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content="CHAT"),
+                    )
+                ]
+            )
+
+    fake_client = SimpleNamespace(
+        chat=SimpleNamespace(
+            completions=FakeCompletions(),
+        )
+    )
+    monkeypatch.setattr("app.services.llm_provider.get_async_llm_client", lambda: fake_client)
+    monkeypatch.setattr("app.services.llm_provider._get_model_name", lambda: "test-model")
+
+    assert await classify_intent("   ") is False
 
 
 def test_four_word_greeting_passes_to_llm():

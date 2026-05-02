@@ -13,6 +13,8 @@ Usage:
 
 from __future__ import annotations
 
+import threading
+
 from crewai import LLM
 
 from app.core.config import settings
@@ -182,9 +184,15 @@ async def classify_intent(query: str) -> bool:
         "lol", "haha", "nice", "cool", "great", "awesome",
     }
 
-    if query_lower in SIMPLE_PATTERNS or (len(query_words) <= 3 and query_words[0] in {
+    GREETING_FIRST_WORDS = {
         "hi", "hello", "hey", "thanks", "bye", "ok", "okay", "yo", "sup",
-    }):
+    }
+
+    if query_lower in SIMPLE_PATTERNS or (
+        query_words
+        and len(query_words) <= 3
+        and query_words[0] in GREETING_FIRST_WORDS
+    ):
         logger.info("Intent [heuristic]: simple chat — '%s'", query[:60])
         return False
 
@@ -226,9 +234,6 @@ async def classify_intent(query: str) -> bool:
         return True
 
 
-# --- Local Embedding Service ---
-import threading
-
 _hf_encoder = None
 _hf_encoder_lock = threading.Lock()
 
@@ -250,6 +255,7 @@ def _get_hf_encoder():
             return _hf_encoder
 
         import logging
+
         import torch
         from sentence_transformers import SentenceTransformer
 
