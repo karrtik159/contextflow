@@ -169,7 +169,7 @@ async def classify_intent(query: str) -> bool:
 
     # ── Layer 1: Fast keyword heuristic (0ms) ──────────────
     query_lower = query.lower().strip()
-    query_words = query_lower.split()
+    chat_phrase = query_lower.strip(" \t\r\n.,!?")
 
     # Obvious greetings / small talk — never need RAG
     SIMPLE_PATTERNS = {
@@ -182,15 +182,7 @@ async def classify_intent(query: str) -> bool:
         "lol", "haha", "nice", "cool", "great", "awesome",
     }
 
-    GREETING_FIRST_WORDS = {
-        "hi", "hello", "hey", "thanks", "bye", "ok", "okay", "yo", "sup",
-    }
-
-    if query_lower in SIMPLE_PATTERNS or (
-        query_words
-        and len(query_words) <= 3
-        and query_words[0] in GREETING_FIRST_WORDS
-    ):
+    if chat_phrase in SIMPLE_PATTERNS:
         logger.info("Intent [heuristic]: simple chat — '%s'", query[:60])
         return False
 
@@ -219,7 +211,13 @@ async def classify_intent(query: str) -> bool:
             ],
         )
         answer = response.choices[0].message.content.strip().upper()
-        needs_rag = "RAG" in answer
+        if answer == "RAG":
+            needs_rag = True
+        elif answer == "CHAT":
+            needs_rag = False
+        else:
+            logger.warning("Intent classifier returned unexpected output %r, defaulting to RAG", answer)
+            needs_rag = True
         logger.info(
             "Intent [LLM]: %s — '%s' (raw: %s)",
             "RAG" if needs_rag else "CHAT",

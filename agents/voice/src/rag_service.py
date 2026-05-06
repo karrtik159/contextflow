@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://app-dev:8000")
+RAG_SERVICE_TOKEN = os.getenv("RAG_SERVICE_TOKEN", "")
 CONTEXT_PREFETCH_PATH = "/api/v1/context/prefetch"
 RAG_QUERY_PATH = "/api/v1/rag/query"
 
@@ -52,9 +53,10 @@ async def _post_json(
 ) -> dict[str, Any]:
     close_client = client is None
     active_client = client or httpx.AsyncClient(timeout=timeout_seconds)
+    headers = {"X-RAG-Service-Token": RAG_SERVICE_TOKEN} if RAG_SERVICE_TOKEN else None
 
     try:
-        response = await active_client.post(f"{API_BASE_URL}{path}", json=payload)
+        response = await active_client.post(f"{API_BASE_URL}{path}", json=payload, headers=headers)
         response.raise_for_status()
         return response.json()
     finally:

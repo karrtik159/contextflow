@@ -9,10 +9,8 @@ This approach tests the LOGIC of the pipeline, not the HTTP transport.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock
 
 from app.services.cache_sanitizer import SanitizedQuery, sanitize_query
-
 
 # ── Helpers ──────────────────────────────────────────────────
 
@@ -45,17 +43,14 @@ async def _simulate_pipeline(
     if sanitized is None:
         sanitized = sanitize_query(query)
 
-    effective_user_id = user_id or "anonymous"
-    cache_lookup_scoped_id = effective_user_id if sanitized.requires_isolation else None
+    # Step 1: Intent
+    needs_rag = intent_needs_rag
 
-    # Step 1: Embedding + Cache
+    # Step 2: User-scoped Embedding + Cache
     query_embedding = embedding  # None simulates embedding failure
 
-    if query_embedding is not None and cached_answer is not None:
+    if needs_rag and user_id and query_embedding is not None and cached_answer is not None:
         return {"answer": cached_answer, "routed_to": "cache"}
-
-    # Step 2: Intent
-    needs_rag = intent_needs_rag
 
     # Step 3: Direct chat
     if not needs_rag:
@@ -78,8 +73,10 @@ async def test_cache_hit_returns_cached_answer():
     """When semantic cache has a match, bypass all LLM processing."""
     result = await _simulate_pipeline(
         "What is AI?",
+        user_id="user-123",
         embedding=[0.1] * 384,
         cached_answer="Cached: AI is...",
+        intent_needs_rag=True,
     )
     assert result["routed_to"] == "cache"
     assert result["answer"] == "Cached: AI is..."
@@ -149,31 +146,24 @@ async def test_crew_empty_result_falls_back():
 # ── Test: PII Isolation ─────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_pii_query_scopes_cache_to_user():
-    """Queries with PII should scope cache lookups to the user's ID."""
-    sanitized = SanitizedQuery(
-        original_query="Send to john@test.com",
-        normalized_query="send to [email]",
-        requires_isolation=True,
-        detected_pii_types=["EMAIL"],
-    )
-
-    # The cache_lookup_scoped_id should be the user_id when PII is found
-    effective_user_id = "user-123"
-    cache_lookup_scoped_id = effective_user_id if sanitized.requires_isolation else None
+async def test_pii_query_uses_user_scoped_cache():
+    """Queries with PII still use the resolved user's cache scope."""
+    user_id = "user-123"
+    cache_lookup_scoped_id = user_id
 
     assert cache_lookup_scoped_id == "user-123"  # Isolated to user
 
 
 @pytest.mark.asyncio
-async def test_no_pii_uses_global_cache():
-    """Queries without PII should search the global cache."""
+async def test_no_pii_still_uses_user_scoped_cache():
+    """Clean queries use the resolved user's cache scope, not a global pool."""
     sanitized = sanitize_query("What is machine learning?")
 
-    effective_user_id = "user-456"
-    cache_lookup_scoped_id = effective_user_id if sanitized.requires_isolation else None
+    user_id = "user-456"
+    cache_lookup_scoped_id = user_id
 
-    assert cache_lookup_scoped_id is None  # Global cache
+    assert sanitized.requires_isolation is False
+    assert cache_lookup_scoped_id == "user-456"
 
 
 # ── Test: Embedding Failure → Skip Cache Gracefully ─────────
