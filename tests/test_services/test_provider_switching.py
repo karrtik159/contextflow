@@ -37,10 +37,10 @@ def test_embed_text_huggingface_uses_sentence_transformer(monkeypatch):
     monkeypatch.setattr("app.services.embeddings.settings.EMBEDDING_DIMENSIONS", 3)
 
     class FakeSentenceTransformer:
-        def encode(self, text: str, convert_to_numpy: bool = True):
+        def encode(self, text, *, normalize_embeddings=True, show_progress_bar=False, convert_to_numpy=True):
             assert text == "test query"
             return SimpleNamespace(tolist=lambda: [0.1, 0.2, 0.3])
 
-    monkeypatch.setattr("app.services.embeddings._get_sentence_transformer", lambda: FakeSentenceTransformer())
+    monkeypatch.setattr("app.services.embeddings._get_hf_encoder", lambda: FakeSentenceTransformer())
 
     assert embed_text("test query") == [0.1, 0.2, 0.3]

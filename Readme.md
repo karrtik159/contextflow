@@ -57,38 +57,51 @@ To avoid dependency conflicts (specifically `opentelemetry-sdk` mismatches betwe
 
 ## 🛠️ Getting Started
 
-### Prerequisites
-- Python 3.11+ (FastAPI) & Python 3.13 (Voice Worker)
-- PostgreSQL 15+ with `pgvector`
-- Neo4j 5+ & Redis Server
-- `uv` package manager (`pip install uv`)
+### 1. Prerequisites
+Ensure you have the following installed before proceeding:
+- **Python:** 3.11+ (for FastAPI Backend) & 3.13 (for Voice Worker)
+- **Databases:** PostgreSQL 15+ (with `pgvector`), Neo4j 5+, and a Redis Server (unless using Docker)
+- **Package Manager:** `uv` (`pip install uv`)
 
-### Option A: Full Stack with Docker (Recommended)
+### 2. Environment Setup
+Before starting the application, you must configure the environment variables:
+```bash
+# Copy the example environment file
+cp .env.example .env
+```
+> **Note:** Open the newly created `.env` file and populate it with your specific API keys (OpenAI, LiveKit) and database credentials.
 
-Start the entire environment (FastAPI, Voice Worker, Postgres, Redis, Neo4j) with hot-reloading:
+### 3. Running the Application
+You can start the project using one of the following methods:
+
+#### Method A: Full Stack with Docker Compose (Recommended)
+This method spins up the entire environment—including the FastAPI backend, Voice Worker, and all databases (PostgreSQL, Redis, Neo4j)—with hot-reloading enabled.
 
 ```bash
-cp .env.example .env
-# Edit .env with your OpenAI, LiveKit, and DB credentials
+# Run the complete stack in the background
 docker compose --profile dev --profile voice-dev up -d --build
+
+# To view logs: docker compose logs -f
+# To stop the stack: docker compose down
 ```
 
-### Option B: Local Setup (Two Terminals)
+#### Method B: Local Setup (Manual via `uv`)
+If you prefer not to use Docker for the application services, you can run the backend and the voice worker separately using two terminals. Ensure your databases are already running locally.
 
-**Terminal 1: FastAPI Backend**
+**Terminal 1: Start the FastAPI Backend**
 ```bash
-uv sync  # Installs main dependencies
+uv sync  # Installs the main dependencies
 uv run uvicorn app.main:app --reload
 ```
 
-**Terminal 2: LiveKit Voice Worker**
+**Terminal 2: Start the LiveKit Voice Worker**
 ```bash
 cd agents/voice
-uv sync  # Creates isolated environment for LiveKit agents
+uv sync  # Creates an isolated environment for the Voice Agent
 uv run python src/agent.py dev
 ```
 
-### Option C: Gradio Frontend Testing Harness
+#### Method C: Gradio Frontend Testing Harness
 
 The repo includes an optional `demo` dependency group for a lightweight frontend testing surface with Gradio:
 

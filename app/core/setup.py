@@ -81,7 +81,7 @@ def lifespan_factory(
             await init_semantic_cache()
             
             # Pre-load localized ML embedding models to prevent cold-start request latency
-            from app.services.llm_provider import init_local_embedding_model
+            from app.services.embeddings import init_local_embedding_model
             init_local_embedding_model()
 
             initialization_complete.set()
