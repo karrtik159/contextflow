@@ -11,11 +11,11 @@ Request flow:
 
 import logging
 
-from fastapi import APIRouter, BackgroundTasks, status
+from fastapi import APIRouter, BackgroundTasks, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.api.deps import DBSession, OptionalUser
+from app.api.deps import DBSession, OptionalUser, is_valid_rag_service_request, resolve_rag_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ class RAGQueryResponse(BaseModel):
 def _process_memory_background(query: str, answer: str, user_id: str):
     """Fire-and-forget: extract entities from the Q&A and persist to graph."""
     import time
+
     from agents.crews.memory_crew import MemoryCrew
 
     transcript = f"User: {query}\nAssistant: {answer}"
@@ -74,6 +75,7 @@ def _process_memory_background(query: str, answer: str, user_id: str):
 async def rag_query(
     request: RAGQueryRequest,
     background_tasks: BackgroundTasks,
+    http_request: Request,
     db: DBSession,
     user: OptionalUser = None,
 ):
@@ -90,64 +92,64 @@ async def rag_query(
        SupportCrew (pgvector + Neo4j + Mem0) pipeline.
     5. **Memory** — Both paths optionally trigger background MemoryCrew and populate graphs.
     """
-    from app.services.llm_provider import classify_intent, direct_chat, stream_direct_chat
-    from app.services.embeddings import embed_text_async_safe
     from app.services.cache_sanitizer import sanitize_query
+    from app.services.embeddings import embed_text_async_safe
+    from app.services.llm_provider import classify_intent, direct_chat, stream_direct_chat
     from app.services.semantic_cache import get_cached_response, populate_semantic_cache
 
-    # Determine user_id from auth or request body
-    user_id = request.user_id
-    if user and not user_id:
-        user_id = str(user.get("id", "anonymous"))
-
-    effective_user_id = user_id or "anonymous"
+    resolved_user_id = resolve_rag_user_id(
+        request_user_id=request.user_id,
+        user=user,
+        is_service_request=is_valid_rag_service_request(http_request),
+    )
+    effective_user_id = resolved_user_id or "anonymous"
 
     # ── Step 0: Sanitize Inbound Query ──────────────────────
     sanitized = sanitize_query(request.query)
 
-    # ── Step 1: Neo4j Zero-Latency Caching ──────────────────
-    # If PII exists, ensure we only lookup cache belonging exclusively to this user!
-    cache_lookup_scoped_id = effective_user_id if sanitized.requires_isolation else None
-
-    # We must generate an embedding for vector lookup natively
-    query_embedding = await embed_text_async_safe(sanitized.normalized_query)
-    
-    if query_embedding:
-        cached_answer = await get_cached_response(
-            normalized_query=sanitized.normalized_query, 
-            embedding=query_embedding, 
-            user_id=cache_lookup_scoped_id
-        )
-        if cached_answer:
-            logger.info("Semantic Cache Hit: '%s' via scoped '%s' isolation", request.query[:80], cache_lookup_scoped_id or 'global')
-            return RAGQueryResponse(
-                answer=cached_answer,
-                query=request.query,
-                user_id=user_id,
-                routed_to="cache",
-            )
-
-    # ── Step 2: Intent Classification ──────────────────────
+    # ── Step 1: Intent Classification ──────────────────────
     needs_rag = await classify_intent(request.query)
 
+    # ── Step 2: User-Scoped Semantic Cache ─────────────────
+    query_embedding = None
+    if needs_rag and resolved_user_id:
+        query_embedding = await embed_text_async_safe(sanitized.normalized_query)
+        if query_embedding:
+            cached_answer = await get_cached_response(
+                normalized_query=sanitized.normalized_query,
+                embedding=query_embedding,
+                user_id=resolved_user_id,
+            )
+            if cached_answer:
+                logger.info(
+                    "Semantic Cache Hit: user=%s query='%s'",
+                    resolved_user_id,
+                    request.query[:80],
+                )
+                return RAGQueryResponse(
+                    answer=cached_answer,
+                    query=request.query,
+                    user_id=resolved_user_id,
+                    routed_to="cache",
+                )
+
     # ── Cache Callback Helper ───────────────────────────────
-    def _fire_background_callbacks(answer: str):
-        if effective_user_id != "anonymous":
+    def _fire_background_callbacks(answer: str, *, populate_cache: bool = False):
+        if resolved_user_id:
             background_tasks.add_task(
                 _process_memory_background,
                 query=request.query,
                 answer=answer,
-                user_id=effective_user_id,
+                user_id=resolved_user_id,
             )
         
-        # Add to Semantic cache graph. Use strict ownership isolation if PII matched natively!
-        if query_embedding:
+        if populate_cache and resolved_user_id and query_embedding:
             background_tasks.add_task(
                 populate_semantic_cache,
                 normalized_query=sanitized.normalized_query,
                 embedding=query_embedding,
                 answer=answer,
-                user_id=cache_lookup_scoped_id,
+                user_id=resolved_user_id,
                 session_id=None
             )
 
@@ -180,7 +182,7 @@ async def rag_query(
         return RAGQueryResponse(
             answer=answer,
             query=request.query,
-            user_id=user_id,
+            user_id=resolved_user_id,
             routed_to="direct",
         )
 
@@ -227,7 +229,7 @@ async def rag_query(
         else:
             routed = "crewai"
 
-    except Exception as exc:
+    except Exception:
         elapsed = time.perf_counter() - t0
         logger.exception(
             "SupportCrew FAILED after %.1fs — query='%s'", elapsed, request.query[:80]
@@ -236,11 +238,11 @@ async def rag_query(
         answer = await direct_chat(request.query)
         routed = "direct_fallback"
 
-    _fire_background_callbacks(answer)
+    _fire_background_callbacks(answer, populate_cache=(routed == "crewai"))
 
     return RAGQueryResponse(
         answer=answer,
         query=request.query,
-        user_id=user_id,
+        user_id=resolved_user_id,
         routed_to=routed,
     )

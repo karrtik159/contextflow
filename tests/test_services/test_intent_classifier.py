@@ -23,9 +23,9 @@ def _heuristic_classify(query: str) -> bool | None:
         None  — heuristic did NOT catch this, would fall through to LLM
     """
     query_lower = query.lower().strip()
-    query_words = query_lower.split()
+    chat_phrase = query_lower.strip(" \t\r\n.,!?")
 
-    if not query_words:
+    if not chat_phrase:
         return None  # empty query passes to LLM
 
     SIMPLE_PATTERNS = {
@@ -38,14 +38,7 @@ def _heuristic_classify(query: str) -> bool | None:
         "lol", "haha", "nice", "cool", "great", "awesome",
     }
 
-    GREETING_FIRST_WORDS = {
-        "hi", "hello", "hey", "thanks", "bye", "ok", "okay", "yo", "sup",
-    }
-
-    if query_lower in SIMPLE_PATTERNS:
-        return False
-
-    if len(query_words) <= 3 and query_words[0] in GREETING_FIRST_WORDS:
+    if chat_phrase in SIMPLE_PATTERNS:
         return False
 
     return None  # Not caught — would proceed to LLM
@@ -132,10 +125,10 @@ def test_four_word_greeting_passes_to_llm():
     assert result is None, "4+ word greeting should pass to LLM"
 
 
-def test_three_word_greeting_caught():
-    """Greetings with <=3 words and greeting first word should be caught."""
-    assert _heuristic_classify("hi there friend") is False
-    assert _heuristic_classify("hey how are") is False
+def test_greeting_plus_topic_passes_to_llm():
+    """Greeting prefixes with meaningful topics should not bypass RAG routing."""
+    assert _heuristic_classify("hi pricing") is None
+    assert _heuristic_classify("hey refund policy") is None
 
 
 def test_knowledge_query_never_caught():
@@ -150,3 +143,37 @@ def test_knowledge_query_never_caught():
     for q in knowledge_queries:
         result = _heuristic_classify(q)
         assert result is None, f"Knowledge query should not be caught: '{q}'"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("raw_output", "expected"),
+    [
+        ("RAG", True),
+        ("CHAT", False),
+        ("CHAT not RAG", True),
+        ("This is not RAG", True),
+    ],
+)
+async def test_classify_intent_parses_exact_outputs(monkeypatch, raw_output, expected):
+    """Only exact classifier outputs are trusted; ambiguous text defaults to RAG."""
+
+    class FakeCompletions:
+        async def create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=raw_output),
+                    )
+                ]
+            )
+
+    fake_client = SimpleNamespace(
+        chat=SimpleNamespace(
+            completions=FakeCompletions(),
+        )
+    )
+    monkeypatch.setattr("app.services.llm_provider.get_async_llm_client", lambda: fake_client)
+    monkeypatch.setattr("app.services.llm_provider._get_model_name", lambda: "test-model")
+
+    assert await classify_intent("tell me about pricing") is expected

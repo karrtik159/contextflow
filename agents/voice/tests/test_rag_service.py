@@ -9,6 +9,7 @@ VOICE_SRC = Path(__file__).resolve().parents[1] / "src"
 if str(VOICE_SRC) not in sys.path:
     sys.path.insert(0, str(VOICE_SRC))
 
+import rag_service  # noqa: E402
 from rag_service import (  # noqa: E402
     CONTEXT_PREFETCH_PATH,
     RAG_QUERY_PATH,
@@ -47,11 +48,16 @@ def test_inject_prefetched_context_adds_system_message():
 
 
 @pytest.mark.asyncio
-async def test_prefetch_context_posts_expected_payload():
+async def test_prefetch_context_posts_expected_payload(monkeypatch):
     payloads: list[dict] = []
+    monkeypatch.setattr(rag_service, "RAG_SERVICE_TOKEN", "service-secret")
 
     def handler(request: httpx.Request) -> httpx.Response:
-        payloads.append({"path": request.url.path, "json": request.read().decode("utf-8")})
+        payloads.append({
+            "path": request.url.path,
+            "json": request.read().decode("utf-8"),
+            "service_token": request.headers.get("X-RAG-Service-Token"),
+        })
         return httpx.Response(200, json={"context": "Scoped memory"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://testserver") as client:
@@ -67,6 +73,7 @@ async def test_prefetch_context_posts_expected_payload():
         {
             "path": CONTEXT_PREFETCH_PATH,
             "json": '{"query":"what were we doing","user_id":"user-123","session_id":"session-456"}',
+            "service_token": "service-secret",
         }
     ]
 

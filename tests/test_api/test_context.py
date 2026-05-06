@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from app.api.v1.context import PrefetchRequest, _parse_uuid, prefetch_context
 
@@ -10,6 +11,10 @@ class _FakeEmbeddingsClient:
     async def __call__(self, text: str):
         assert text == "where did we leave off?"
         return [0.1, 0.2, 0.3]
+
+
+def _request(headers: dict[str, str] | None = None):
+    return SimpleNamespace(headers=headers or {})
 
 
 @pytest.mark.asyncio
@@ -41,6 +46,8 @@ async def test_prefetch_context_scopes_results_by_user_and_session(monkeypatch):
             limit=3,
         ),
         db=object(),
+        http_request=_request(),
+        user={"id": str(user_id)},
     )
 
     assert "Relevant context from previous memory/conversations" in response["context"]
@@ -56,6 +63,11 @@ async def test_prefetch_context_scopes_results_by_user_and_session(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_prefetch_context_requires_scoped_identifiers(monkeypatch):
+    monkeypatch.setattr(
+        "app.api.deps.settings.RAG_SERVICE_TOKEN",
+        type("Secret", (), {"get_secret_value": lambda self: "service-secret"})(),
+    )
+
     response = await prefetch_context(
         PrefetchRequest(
             query="where did we leave off?",
@@ -64,9 +76,47 @@ async def test_prefetch_context_requires_scoped_identifiers(monkeypatch):
             limit=5,
         ),
         db=object(),
+        http_request=_request({"X-RAG-Service-Token": "service-secret"}),
+        user=None,
     )
 
     assert response == {"context": "No scoped conversation context is available yet."}
+
+
+@pytest.mark.asyncio
+async def test_prefetch_context_rejects_unauthenticated_request():
+    with pytest.raises(HTTPException) as exc:
+        await prefetch_context(
+            PrefetchRequest(
+                query="where did we leave off?",
+                user_id=None,
+                session_id=None,
+                limit=5,
+            ),
+            db=object(),
+            http_request=_request(),
+            user=None,
+        )
+
+    assert exc.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_prefetch_context_rejects_spoofed_user_id():
+    with pytest.raises(HTTPException) as exc:
+        await prefetch_context(
+            PrefetchRequest(
+                query="where did we leave off?",
+                user_id=uuid4(),
+                session_id=None,
+                limit=5,
+            ),
+            db=object(),
+            http_request=_request(),
+            user={"id": str(uuid4())},
+        )
+
+    assert exc.value.status_code == 403
 
 
 def test_parse_uuid_handles_invalid_values():

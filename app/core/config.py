@@ -158,6 +158,10 @@ class Mem0Settings(BaseSettings):
     MEM0_API_KEY: SecretStr = SecretStr("")
 
 
+class RAGServiceSettings(BaseSettings):
+    RAG_SERVICE_TOKEN: SecretStr = SecretStr("")
+
+
 # ── Observability ───────────────────────────────────────────
 class ObservabilitySettings(BaseSettings):
     LANGSMITH_API_KEY: SecretStr = SecretStr("")
@@ -185,6 +189,7 @@ class Settings(
     AISettings,
     LiveKitSettings,
     Mem0Settings,
+    RAGServiceSettings,
     ObservabilitySettings,
     LoggerSettings,
 ):

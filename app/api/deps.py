@@ -8,12 +8,14 @@ All dependencies are designed as reusable `Annotated` type aliases:
     CurrentSuperUser → authenticated admin (requires is_superuser=True)
 """
 
+import hmac
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.db import get_db
 from app.services.crud import user_crud
 
@@ -85,6 +87,57 @@ async def get_optional_user(
 
 
 OptionalUser = Annotated[dict[str, Any] | None, Depends(get_optional_user)]
+
+
+def is_valid_rag_service_request(request: Request) -> bool:
+    """Return True when an internal worker presents the configured RAG service token."""
+    expected = settings.RAG_SERVICE_TOKEN.get_secret_value()
+    supplied = request.headers.get("X-RAG-Service-Token", "")
+    return bool(expected) and hmac.compare_digest(supplied, expected)
+
+
+def get_user_id_value(user: Any) -> str | None:
+    """Extract a stable user id string from the auth dependency result."""
+    if user is None:
+        return None
+    if isinstance(user, dict):
+        value = user.get("id")
+    else:
+        value = getattr(user, "id", None)
+    return str(value) if value else None
+
+
+def resolve_rag_user_id(
+    *,
+    request_user_id: str | None,
+    user: Any,
+    is_service_request: bool,
+) -> str | None:
+    """Resolve the authoritative user scope for RAG/context endpoints.
+
+    User JWT identity wins for app clients. Internal service-token callers may
+    supply a user id explicitly. Anonymous callers cannot opt into a user scope.
+    """
+    auth_user_id = get_user_id_value(user)
+    supplied_user_id = None if request_user_id in (None, "", "anonymous") else str(request_user_id)
+
+    if is_service_request:
+        return supplied_user_id or auth_user_id
+
+    if auth_user_id:
+        if supplied_user_id and supplied_user_id != auth_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="request user_id does not match authenticated user",
+            )
+        return auth_user_id
+
+    if supplied_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="user_id requires authentication or internal service token",
+        )
+    return None
 
 
 # ── Superuser Gate ───────────────────────────────────────────────────
