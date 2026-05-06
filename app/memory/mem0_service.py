@@ -4,6 +4,8 @@ long-term user memories.  Acts as the bridge between CrewAI crews
 and the underlying Neo4j / pgvector stores.
 """
 
+import threading
+
 from mem0 import Memory
 
 from app.core.config import settings
@@ -71,30 +73,45 @@ def _build_mem0_config() -> dict:
 
 
 class Mem0Service:
-    """Singleton-style wrapper around the Mem0 Memory client."""
+    """Thread-safe singleton wrapper around the Mem0 Memory client.
+
+    Uses double-checked locking so concurrent CrewAI tool threads
+    don't race to create multiple ``Memory`` instances.
+    """
 
     _instance: Memory | None = None
+    _lock: threading.Lock = threading.Lock()
 
     @classmethod
     def get_client(cls) -> Memory:
-        if cls._instance is None:
+        if cls._instance is not None:
+            return cls._instance
+        with cls._lock:
+            # Another thread may have initialised while we waited
+            if cls._instance is not None:
+                return cls._instance
             cls._instance = Memory.from_config(config_dict=_build_mem0_config())
         return cls._instance
 
+    # NOTE: The methods below are intentionally *synchronous*.
+    # The Mem0 SDK's add/search/get_all are blocking calls.
+    # Marking them ``async`` would silently block the event loop.
+    # Callers needing async should wrap with ``asyncio.to_thread()``.
+
     @classmethod
-    async def add_memory(cls, content: str, user_id: str, metadata: dict | None = None):
+    def add_memory(cls, content: str, user_id: str, metadata: dict | None = None):
         """Store a new memory for a given user."""
         client = cls.get_client()
         return client.add(content, user_id=user_id, metadata=metadata or {})
 
     @classmethod
-    async def search_memories(cls, query: str, user_id: str, limit: int = 5):
+    def search_memories(cls, query: str, user_id: str, limit: int = 5):
         """Retrieve memories most relevant to the query."""
         client = cls.get_client()
         return client.search(query, user_id=user_id, limit=limit)
 
     @classmethod
-    async def get_all_memories(cls, user_id: str):
+    def get_all_memories(cls, user_id: str):
         """Get the complete memory profile for a user."""
         client = cls.get_client()
         return client.get_all(user_id=user_id)

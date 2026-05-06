@@ -24,3 +24,21 @@ def test_memory_crew_tasks_only_reference_memory_agents():
     referenced_agents = {task_config["agent"] for task_config in tasks.values()}
     assert referenced_agents == {"entity_extractor", "graph_updater"}
     assert referenced_agents.issubset(set(agents))
+
+
+def test_graph_search_import_does_not_connect():
+    """Importing graph_search should NOT create a Neo4j driver at import time.
+
+    The driver is now lazy-initialized on first use, so this import succeeds
+    even when Neo4j is not running (which is the case in unit test environments).
+    """
+    import importlib
+
+    import app.services.graph_search as gs
+
+    # Force a fresh import to prove it doesn't crash
+    importlib.reload(gs)
+
+    # The private _driver should still be None after import (lazy)
+    assert gs._driver is None
+

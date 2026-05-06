@@ -3,13 +3,16 @@ CrewAI Tool — Knowledge Graph Search via Neo4j.
 
 Allows CrewAI agents to traverse the Neo4j knowledge graph
 to find entities and their relationships for multi-hop reasoning.
+
+Uses the shared ``run_async()`` bridge for event-loop safety.
 """
 
-import asyncio
 from typing import Type
 
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
+
+from agents.crews.tools.async_bridge import run_async
 
 
 class GraphSearchInput(BaseModel):
@@ -33,19 +36,12 @@ class GraphSearchTool(BaseTool):
         """Traverse the knowledge graph for related entities."""
         from app.services.graph_search import find_related_entities
 
-        async def _search():
-            return await find_related_entities(entity_name, max_hops=min(max_hops, 3))
-
-        # CrewAI tools run in threads that may already have an event loop.
-        # asyncio.run() would crash with "This event loop is already running".
-        # Create a dedicated loop for this call instead.
-        loop = asyncio.new_event_loop()
         try:
-            results = loop.run_until_complete(_search())
+            results = run_async(
+                find_related_entities(entity_name, max_hops=min(max_hops, 3))
+            )
         except Exception as e:
             return f"Graph search error: {e}"
-        finally:
-            loop.close()
 
         if not results:
             return f"No entities related to '{entity_name}' found in the knowledge graph."
@@ -57,3 +53,4 @@ class GraphSearchTool(BaseTool):
             output_lines.append(f"{i}. {entity_name} —[{rels}]→ {related}")
 
         return "\n".join(output_lines)
+
