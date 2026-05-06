@@ -56,7 +56,7 @@ async def test_rag_query_crewai_path(monkeypatch):
     )
     # Skip embedding + cache
     monkeypatch.setattr(
-        "app.services.llm_provider._get_embedding",
+        "app.services.embeddings.embed_text_async_safe",
         _no_embedding,
     )
 
@@ -90,7 +90,7 @@ async def test_rag_query_direct_path(monkeypatch):
     )
     # Skip embedding + cache
     monkeypatch.setattr(
-        "app.services.llm_provider._get_embedding",
+        "app.services.embeddings.embed_text_async_safe",
         _no_embedding,
     )
 

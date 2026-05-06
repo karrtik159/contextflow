@@ -90,7 +90,8 @@ async def rag_query(
        SupportCrew (pgvector + Neo4j + Mem0) pipeline.
     5. **Memory** — Both paths optionally trigger background MemoryCrew and populate graphs.
     """
-    from app.services.llm_provider import classify_intent, direct_chat, stream_direct_chat, _get_embedding
+    from app.services.llm_provider import classify_intent, direct_chat, stream_direct_chat
+    from app.services.embeddings import embed_text_async_safe
     from app.services.cache_sanitizer import sanitize_query
     from app.services.semantic_cache import get_cached_response, populate_semantic_cache
 
@@ -109,7 +110,7 @@ async def rag_query(
     cache_lookup_scoped_id = effective_user_id if sanitized.requires_isolation else None
 
     # We must generate an embedding for vector lookup natively
-    query_embedding = await _get_embedding(sanitized.normalized_query)
+    query_embedding = await embed_text_async_safe(sanitized.normalized_query)
     
     if query_embedding:
         cached_answer = await get_cached_response(

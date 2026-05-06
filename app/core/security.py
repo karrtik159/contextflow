@@ -110,8 +110,8 @@ def create_refresh_token(
 # ── Token Verification ──────────────────────────────────────
 
 
-def decode_access_token(token: str) -> dict | None:
-    """Raw JWT decode — no blacklist check. Used by deps.py backwards compat."""
+def _decode_jwt(token: str) -> dict | None:
+    """Shared JWT decode — returns payload dict or None on any error."""
     try:
         return jwt.decode(
             token,
@@ -120,6 +120,11 @@ def decode_access_token(token: str) -> dict | None:
         )
     except JWTError:
         return None
+
+
+def decode_access_token(token: str) -> dict | None:
+    """Raw JWT decode — no blacklist check. Used by deps.py backwards compat."""
+    return _decode_jwt(token)
 
 
 async def verify_token(
@@ -137,22 +142,17 @@ async def verify_token(
         return None
 
     # 2. Decode
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY.get_secret_value(),
-            algorithms=[settings.ALGORITHM],
-        )
-        username_or_email: str | None = payload.get("sub")
-        token_type: str | None = payload.get("token_type")
-
-        if username_or_email is None or token_type != expected_token_type:
-            return None
-
-        return TokenData(username_or_email=username_or_email)
-
-    except JWTError:
+    payload = _decode_jwt(token)
+    if payload is None:
         return None
+
+    username_or_email: str | None = payload.get("sub")
+    token_type: str | None = payload.get("token_type")
+
+    if username_or_email is None or token_type != expected_token_type:
+        return None
+
+    return TokenData(username_or_email=username_or_email)
 
 
 # ── Token Blacklisting ──────────────────────────────────────
@@ -160,18 +160,14 @@ async def verify_token(
 
 async def blacklist_token(token: str, db: AsyncSession) -> None:
     """Add a single token to the blacklist."""
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY.get_secret_value(),
-            algorithms=[settings.ALGORITHM],
+    payload = _decode_jwt(token)
+    if payload is None:
+        return  # Token already invalid, no need to blacklist
+
+    exp_timestamp = payload.get("exp")
+    if exp_timestamp is not None:
+        expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
+        await token_blacklist_crud.create(
+            db,
+            object=TokenBlacklistCreate(token=token, expires_at=expires_at),
         )
-        exp_timestamp = payload.get("exp")
-        if exp_timestamp is not None:
-            expires_at = datetime.fromtimestamp(exp_timestamp, tz=UTC)
-            await token_blacklist_crud.create(
-                db,
-                object=TokenBlacklistCreate(token=token, expires_at=expires_at),
-            )
-    except JWTError:
-        pass  # Token already invalid, no need to blacklist

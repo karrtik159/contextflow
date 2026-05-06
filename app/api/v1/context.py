@@ -1,11 +1,10 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db
+from app.api.deps import DBSession
 from app.services.embeddings import embed_text_async
 from app.services.vector_search import search_similar_messages
 
@@ -36,7 +35,7 @@ def _parse_uuid(value: UUID | str | None) -> UUID | None:
 @router.post("/prefetch", response_model=PrefetchResponse)
 async def prefetch_context(
     request: PrefetchRequest,
-    db: AsyncSession = Depends(get_db),
+    db: DBSession,
 ) -> Any:
     """
     Ultra-low latency semantic search for Voice AI RAG.

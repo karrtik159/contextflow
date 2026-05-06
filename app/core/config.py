@@ -13,7 +13,7 @@ Usage:
 import os
 from enum import Enum
 
-from pydantic import SecretStr, computed_field
+from pydantic import SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -141,6 +141,11 @@ class AISettings(BaseSettings):
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIMENSIONS: int = 1536
     HUGGINGFACE_API_KEY: SecretStr = SecretStr("")
+
+    @field_validator("LLM_PROVIDER", "EMBEDDING_PROVIDER", mode="before")
+    @classmethod
+    def _normalize_provider(cls, v: str) -> str:
+        return v.lower().strip() if isinstance(v, str) else v
 
 
 class LiveKitSettings(BaseSettings):

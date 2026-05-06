@@ -13,8 +13,6 @@ Usage:
 
 from __future__ import annotations
 
-import threading
-
 from crewai import LLM
 
 from app.core.config import settings
@@ -33,7 +31,7 @@ def get_openai_compatible_kwargs() -> dict:
 
 def build_crewai_llm() -> LLM:
     """Build a CrewAI-compatible LLM based on the configured provider."""
-    provider = settings.LLM_PROVIDER.lower().strip()
+    provider = settings.LLM_PROVIDER
     model = settings.LLM_MODEL
 
     if provider == "openai":
@@ -77,7 +75,7 @@ def build_crewai_embedder() -> dict:
     Usage:
         Crew(memory=True, embedder=build_crewai_embedder())
     """
-    provider = settings.EMBEDDING_PROVIDER.lower().strip()
+    provider = settings.EMBEDDING_PROVIDER
 
     if provider == "openai":
         config: dict = {
@@ -119,7 +117,7 @@ def get_async_llm_client():
     """
     from openai import AsyncOpenAI
 
-    provider = settings.LLM_PROVIDER.lower().strip()
+    provider = settings.LLM_PROVIDER
 
     if provider == "openai":
         return AsyncOpenAI(
@@ -144,7 +142,7 @@ def get_async_llm_client():
 
 def _get_model_name() -> str:
     """Return the model name suitable for the OpenAI-compatible client."""
-    provider = settings.LLM_PROVIDER.lower().strip()
+    provider = settings.LLM_PROVIDER
     model = settings.LLM_MODEL
 
     if provider == "google":
@@ -232,152 +230,6 @@ async def classify_intent(query: str) -> bool:
     except Exception as exc:
         logger.warning("Intent classification failed (%s), defaulting to RAG", exc)
         return True
-
-
-_hf_encoder = None
-_hf_encoder_lock = threading.Lock()
-
-
-def _get_hf_encoder():
-    """Thread-safe lazy loader for the SentenceTransformer model.
-
-    Uses a lock to prevent race conditions if multiple asyncio threads
-    call this before the model is loaded. SentenceTransformer's internal
-    tokenizer is NOT thread-safe for concurrent initialization.
-    """
-    global _hf_encoder
-    if _hf_encoder is not None:
-        return _hf_encoder
-
-    with _hf_encoder_lock:
-        # Double-checked locking: another thread may have loaded it while we waited
-        if _hf_encoder is not None:
-            return _hf_encoder
-
-        import logging
-
-        import torch
-        from sentence_transformers import SentenceTransformer
-
-        logger = logging.getLogger(__name__)
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        model_name = settings.EMBEDDING_MODEL
-
-        logger.info("Loading SentenceTransformer model '%s' on device '%s'...", model_name, device)
-        _hf_encoder = SentenceTransformer(model_name, device=device)
-        logger.info(
-            "SentenceTransformer ready — dim=%d, device=%s",
-            _hf_encoder.get_sentence_embedding_dimension(),
-            device,
-        )
-    return _hf_encoder
-
-
-def init_local_embedding_model():
-    """Pre-load the embedding model into memory during FastAPI lifespan startup.
-
-    Called synchronously from the lifespan factory. Validates that the loaded
-    model dimension matches EMBEDDING_DIMENSIONS in config to catch .env
-    mismatches early (before the first request hits Neo4j).
-    """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    if settings.EMBEDDING_PROVIDER.lower().strip() != "huggingface":
-        return
-
-    try:
-        encoder = _get_hf_encoder()
-        actual_dim = encoder.get_sentence_embedding_dimension()
-        expected_dim = settings.EMBEDDING_DIMENSIONS
-
-        if actual_dim != expected_dim:
-            logger.error(
-                "EMBEDDING_DIMENSIONS mismatch! Model '%s' produces %d-dim vectors, "
-                "but config says %d. Update EMBEDDING_DIMENSIONS in .env to %d.",
-                settings.EMBEDDING_MODEL, actual_dim, expected_dim, actual_dim,
-            )
-        else:
-            logger.info("Embedding model validated — %d dimensions match config.", actual_dim)
-    except Exception as exc:
-        logger.error("Failed to load local embedding model: %s", exc, exc_info=True)
-
-
-async def _get_embedding(text: str) -> list[float] | None:
-    """Generate a vector embedding for the given text.
-
-    Uses the configured EMBEDDING_PROVIDER / EMBEDDING_MODEL to produce
-    a float vector suitable for Neo4j semantic cache lookups.
-
-    Returns None on failure so the caller can gracefully skip caching.
-    """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
-    try:
-        provider = settings.EMBEDDING_PROVIDER.lower().strip()
-
-        if provider == "huggingface":
-            import asyncio
-            
-            def _encode_sync(content: str) -> list[float]:
-                encoder = _get_hf_encoder()
-                # normalize_embeddings=True: L2-normalizes vectors so cosine similarity
-                # reduces to a fast dot product inside Neo4j's vector index.
-                # show_progress_bar=False: prevents stdout pollution in server logs.
-                vec = encoder.encode(
-                    content,
-                    normalize_embeddings=True,
-                    show_progress_bar=False,
-                    convert_to_numpy=True,
-                )
-                return vec.tolist()
-                
-            # Offload to a thread to keep the FastAPI event loop free.
-            # NOTE: SentenceTransformer.encode() holds the GIL during tokenization
-            # but releases it during the PyTorch forward pass, so this does help
-            # with concurrent request handling.
-            return await asyncio.to_thread(_encode_sync, text)
-
-        else:
-            from openai import AsyncOpenAI
-            
-            if provider == "openai":
-                client = AsyncOpenAI(
-                    api_key=settings.OPENAI_API_KEY.get_secret_value(),
-                    base_url=settings.OPENAI_BASE_URL or None,
-                )
-            elif provider == "google":
-                # Gemini exposes an OpenAI-compatible embeddings endpoint
-                client = AsyncOpenAI(
-                    api_key=settings.GOOGLE_API_KEY.get_secret_value(),
-                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                )
-            else:
-                client = AsyncOpenAI(
-                    api_key=settings.OPENAI_API_KEY.get_secret_value(),
-                    base_url=settings.OPENAI_BASE_URL or None,
-                )
-    
-            kwargs = {
-                "model": settings.EMBEDDING_MODEL,
-                "input": text,
-            }
-            
-            # Only explicitly pass dimensions if it's the official OpenAI Provider using text-embedding-3 series 
-            # to prevent crashing local instances like LM Studio.
-            if provider == "openai" and "text-embedding-3" in settings.EMBEDDING_MODEL:
-                kwargs["dimensions"] = settings.EMBEDDING_DIMENSIONS
-    
-            response = await client.embeddings.create(**kwargs)
-            return response.data[0].embedding
-
-    except Exception as exc:
-        logger.warning("Embedding generation failed (%s), skipping cache", exc)
-        return None
 
 
 async def stream_direct_chat(
