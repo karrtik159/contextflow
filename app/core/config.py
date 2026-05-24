@@ -19,7 +19,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # ── Application ─────────────────────────────────────────────
 class AppSettings(BaseSettings):
-    APP_NAME: str = "OpenAI Clone"
+    APP_NAME: str = "ContextFlow"
     APP_DESCRIPTION: str | None = "Real-time Voice & Deep Memory AI"
     APP_VERSION: str | None = "0.1.0"
     LICENSE_NAME: str | None = "MIT"
@@ -52,7 +52,7 @@ class PostgresSettings(BaseSettings):
     POSTGRES_PASSWORD: str = "changeme"
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str = "openai_clone"
+    POSTGRES_DB: str = "contextflow_d"
     POSTGRES_ASYNC_PREFIX: str = "postgresql+asyncpg://"
     POSTGRES_SYNC_PREFIX: str = "postgresql://"
     POSTGRES_URL: str | None = None
@@ -154,10 +154,6 @@ class LiveKitSettings(BaseSettings):
     LIVEKIT_API_SECRET: SecretStr = SecretStr("")
 
 
-class Mem0Settings(BaseSettings):
-    MEM0_API_KEY: SecretStr = SecretStr("")
-
-
 class RAGServiceSettings(BaseSettings):
     RAG_SERVICE_TOKEN: SecretStr = SecretStr("")
 
@@ -165,7 +161,7 @@ class RAGServiceSettings(BaseSettings):
 # ── Observability ───────────────────────────────────────────
 class ObservabilitySettings(BaseSettings):
     LANGSMITH_API_KEY: SecretStr = SecretStr("")
-    LANGSMITH_PROJECT: str = "openai-clone"
+    LANGSMITH_PROJECT: str = "contextflow_dev"
 
 
 # ── Logging ─────────────────────────────────────────────────
@@ -188,7 +184,6 @@ class Settings(
     FirstUserSettings,
     AISettings,
     LiveKitSettings,
-    Mem0Settings,
     RAGServiceSettings,
     ObservabilitySettings,
     LoggerSettings,

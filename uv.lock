@@ -2422,7 +2422,7 @@ wheels = [
 ]
 
 [[package]]
-name = "openai-clone"
+name = "contextflow_dev"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

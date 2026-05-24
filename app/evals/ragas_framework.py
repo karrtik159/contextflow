@@ -1,5 +1,5 @@
 """
-RAGAS evaluation framework for the OpenAI Clone RAG pipeline.
+RAGAS evaluation framework for the ContextFlow RAG pipeline.
 
 This module is designed to work in two phases:
 1. Answer-level evaluation now, using `/api/v1/rag/query`.
@@ -174,7 +174,7 @@ def evaluate_cases(cases: list[EvalCase]) -> Any:
         metrics=metrics,
         llm=llm,
         embeddings=embeddings,
-        experiment_name="openai-clone-ragas",
+        experiment_name="contextflow_dev-ragas",
         show_progress=True,
         raise_exceptions=False,
     )

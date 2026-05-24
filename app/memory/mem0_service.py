@@ -1,14 +1,44 @@
 """
-Mem0 service — wraps the Mem0 client for injecting and retrieving
-long-term user memories.  Acts as the bridge between CrewAI crews
-and the underlying Neo4j / pgvector stores.
+Mem0 service for long-term user memories.
+
+The Mem0 SDK owns its pgvector collection/table lifecycle. Alembic should
+manage the application's tables only; Mem0 creates and evolves its own storage
+objects from this configuration.
 """
 
+import logging
 import threading
 
 from mem0 import Memory
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+_LOW_SIGNAL_MEMORY_VALUES = {
+    "",
+    "none",
+    "n/a",
+    "na",
+    "null",
+    "undefined",
+    "no memory",
+    "no memories",
+    "no relevant memory",
+    "nothing to store",
+    "[]",
+    "{}",
+}
+
+
+def clean_memory_content(content: str) -> str | None:
+    """Return normalized memory text or None when the input is not worth storing."""
+    normalized = " ".join(content.strip().split())
+    if normalized.lower() in _LOW_SIGNAL_MEMORY_VALUES:
+        return None
+    if len(normalized) < 8:
+        return None
+    return normalized
 
 
 def _build_mem0_llm_config() -> dict:
@@ -50,7 +80,7 @@ def _build_mem0_embedding_config() -> dict:
 
 
 def _build_mem0_config() -> dict:
-    """Build Mem0 configuration dict."""
+    """Build self-hosted Mem0 configuration."""
     return {
         "llm": _build_mem0_llm_config(),
         "embedder": _build_mem0_embedding_config(),
@@ -76,7 +106,7 @@ class Mem0Service:
     """Thread-safe singleton wrapper around the Mem0 Memory client.
 
     Uses double-checked locking so concurrent CrewAI tool threads
-    don't race to create multiple ``Memory`` instances.
+    do not race to create multiple ``Memory`` instances.
     """
 
     _instance: Memory | None = None
@@ -87,28 +117,38 @@ class Mem0Service:
         if cls._instance is not None:
             return cls._instance
         with cls._lock:
-            # Another thread may have initialised while we waited
             if cls._instance is not None:
                 return cls._instance
+            logger.info(
+                "Initializing Mem0 client with SDK-managed pgvector collection '%s' and Neo4j graph store",
+                "mem0_memories",
+            )
             cls._instance = Memory.from_config(config_dict=_build_mem0_config())
         return cls._instance
 
-    # NOTE: The methods below are intentionally *synchronous*.
-    # The Mem0 SDK's add/search/get_all are blocking calls.
-    # Marking them ``async`` would silently block the event loop.
-    # Callers needing async should wrap with ``asyncio.to_thread()``.
+    # The Mem0 SDK's add/search/get_all methods are blocking calls.
+    # Async callers should wrap these methods with ``asyncio.to_thread()``.
 
     @classmethod
     def add_memory(cls, content: str, user_id: str, metadata: dict | None = None):
         """Store a new memory for a given user."""
+        clean_content = clean_memory_content(content)
+        if clean_content is None:
+            logger.info("Skipping low-signal memory for user=%s", user_id)
+            return {"skipped": True, "reason": "low_signal_memory"}
+
         client = cls.get_client()
-        return client.add(content, user_id=user_id, metadata=metadata or {})
+        return client.add(clean_content, user_id=user_id, metadata=metadata or {})
 
     @classmethod
     def search_memories(cls, query: str, user_id: str, limit: int = 5):
         """Retrieve memories most relevant to the query."""
+        clean_query = " ".join(query.strip().split())
+        if not clean_query:
+            return []
+
         client = cls.get_client()
-        return client.search(query, user_id=user_id, limit=limit)
+        return client.search(clean_query, user_id=user_id, limit=limit)
 
     @classmethod
     def get_all_memories(cls, user_id: str):

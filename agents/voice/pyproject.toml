@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "openai-clone-voice-worker"
+name = "contextflow_dev-voice-worker"
 version = "1.0.0"
-description = "LiveKit voice agent worker for the OpenAI Clone — Hybrid RAG via API"
-requires-python = ">=3.10, <3.15"
+description = "LiveKit voice agent worker for the ContextFlow — Hybrid RAG via API"
+requires-python = ">=3.11, <3.12"
 
 dependencies = [
     "livekit-agents[silero,turn-detector]~=1.4",

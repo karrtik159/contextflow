@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ============================================================
-# Dockerfile — OpenAI Clone FastAPI Application
+# Dockerfile — ContextFlow FastAPI Application
 # Optimized multi-stage build for maximum speed & minimal size
 # ============================================================
 
@@ -49,7 +49,7 @@ FROM python:3.11-slim AS runtime
 
 # Labels for image metadata
 LABEL maintainer="karrtik159"
-LABEL description="OpenAI Clone — Real-time Voice & Deep Memory AI"
+LABEL description="ContextFlow — Real-time Voice & Deep Memory AI"
 
 WORKDIR /app
 
