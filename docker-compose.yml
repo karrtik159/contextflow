@@ -1,5 +1,5 @@
 # ============================================================
-# Docker Compose — OpenAI Clone Full Stack
+# Docker Compose — ContextFlow Full Stack
 # Services: FastAPI App, Voice Worker, PostgreSQL+pgvector, Redis, Neo4j
 #
 # Build fast:  DOCKER_BUILDKIT=1 docker compose build
@@ -18,8 +18,8 @@ services:
   #     target: runtime         # Build only up to the runtime stage
   #     args:
   #       BUILDKIT_INLINE_CACHE: 1
-  #   image: openai-clone:latest
-  #   container_name: openai_clone_app
+  #   image: contextflow_dev:latest
+  #   container_name: contextflow_dev_app
   #   restart: unless-stopped
   #   ports:
   #     - "8000:8000"
@@ -48,7 +48,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: deps            # Only need deps stage — source is mounted
-    container_name: openai_clone_app_dev
+    container_name: contextflow_dev_app_dev
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -87,8 +87,8 @@ services:
   #     context: ./agents/voice
   #     dockerfile: Dockerfile
   #     args:
-  #       PYTHON_VERSION: "3.13"
-  #   container_name: openai_clone_voice_worker
+  #       PYTHON_VERSION: "3.11"
+  #   container_name: contextflow_dev_voice_worker
   #   restart: unless-stopped
   #   env_file:
   #     - .env
@@ -116,8 +116,8 @@ services:
       context: ./agents/voice
       dockerfile: Dockerfile
       args:
-        PYTHON_VERSION: "3.13"
-    container_name: openai_clone_voice_worker_dev
+        PYTHON_VERSION: "3.11"
+    container_name: contextflow_dev_voice_worker_dev
     restart: unless-stopped
     env_file:
       - .env
@@ -144,19 +144,19 @@ services:
   # ── PostgreSQL + pgvector ─────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: openai_clone_postgres
+    container_name: contextflow_dev_postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: changeme
-      POSTGRES_DB: openai_clone
+      POSTGRES_DB: contextflow_dev
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d openai_clone"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d contextflow_dev"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -166,7 +166,7 @@ services:
   # ── Redis ─────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: openai_clone_redis
+    container_name: contextflow_dev_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -184,7 +184,7 @@ services:
   # ── Neo4j ─────────────────────────────────────────────────
   neo4j:
     image: neo4j:5-community
-    container_name: openai_clone_neo4j
+    container_name: contextflow_dev_neo4j
     restart: unless-stopped
     ports:
       - "7474:7474"   # Browser UI

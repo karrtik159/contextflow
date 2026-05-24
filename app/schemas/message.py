@@ -20,6 +20,7 @@ class MessageCreateInternal(MessageCreate):
     """Internal schema — includes session_id for FastCRUD create()."""
 
     session_id: uuid.UUID
+    embedding: list[float] | None = None
 
 
 class MessageRead(BaseModel):

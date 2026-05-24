@@ -1,10 +1,10 @@
-# 🎙️ OpenAI Clone: Real-Time Voice & Deep Memory AI
+# 🎙️ ContextFlow: Real-Time Voice & Deep Memory AI
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.135%2B-green.svg)
 
-An advanced, high-performance open-source OpenAI Clone featuring **real-time voice interaction** and **deep memory capabilities**. By leveraging a cutting-edge **Hybrid Graph-Vector RAG (Retrieval-Augmented Generation)** architecture, this project combines the structured relationship-tracking of knowledge graphs with the high-speed semantic retrieval of vector databases to deliver unparalleled contextual awareness and ultra-low latency conversational AI.
+An advanced, high-performance open-source ContextFlow featuring **real-time voice interaction** and **deep memory capabilities**. By leveraging a cutting-edge **Hybrid Graph-Vector RAG (Retrieval-Augmented Generation)** architecture, this project combines the structured relationship-tracking of knowledge graphs with the high-speed semantic retrieval of vector databases to deliver unparalleled contextual awareness and ultra-low latency conversational AI.
 
 ## 🚀 Key Features
 
@@ -34,7 +34,7 @@ An advanced, high-performance open-source OpenAI Clone featuring **real-time voi
 ## 📁 Project Structure
 
 ```text
-OpenAI_Clone/
+ContextFlow/
 ├── app/                       # Main FastAPI application (CrewAI, DBs, Auth)
 ├── agents/
 │   ├── voice/                 # 🎙️ LiveKit Voice Worker (Standalone uv project)

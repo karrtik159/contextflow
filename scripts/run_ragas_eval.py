@@ -18,7 +18,7 @@ from app.evals.ragas_framework import (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run RAGAS evaluation for the OpenAI Clone RAG pipeline.")
+    parser = argparse.ArgumentParser(description="Run RAGAS evaluation for the ContextFlow RAG pipeline.")
     parser.add_argument(
         "--dataset",
         default="tests/test_eval/fixtures/ragas_cases.json",

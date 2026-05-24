@@ -12,7 +12,7 @@ Usage:
 
 Required env vars (in .env):
     LANGSMITH_API_KEY   — your LangSmith API key
-    LANGSMITH_PROJECT   — project name (defaults to "openai-clone")
+    LANGSMITH_PROJECT   — project name (defaults to "contextflow_dev")
     LANGCHAIN_TRACING_V2=true  — enables LangSmith tracing
 """
 

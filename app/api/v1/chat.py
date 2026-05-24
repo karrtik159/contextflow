@@ -12,6 +12,7 @@ from app.api.deps import DBSession
 from app.schemas.chat_session import SessionCreate, SessionCreateInternal, SessionRead
 from app.schemas.message import MessageCreate, MessageCreateInternal, MessageRead
 from app.services.crud import message_crud, session_crud
+from app.services.embeddings import embed_text_async_safe
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -48,10 +49,15 @@ async def list_messages(session_id: UUID, db: DBSession):
 @router.post("/sessions/{session_id}/messages", response_model=MessageRead, status_code=201)
 async def create_message(session_id: UUID, payload: MessageCreate, db: DBSession):
     """Add a new message to a session."""
+    embedding = None
+    if payload.role in {"user", "assistant"}:
+        embedding = await embed_text_async_safe(payload.content)
+
     internal = MessageCreateInternal(
         role=payload.role,
         content=payload.content,
         session_id=session_id,
+        embedding=embedding,
     )
     new_msg = await message_crud.create(
         db,

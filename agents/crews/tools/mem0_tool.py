@@ -5,8 +5,6 @@ Allows CrewAI agents to store and retrieve long-term user memories
 via the Mem0 service (backed by pgvector + Neo4j).
 """
 
-from typing import Literal, Type
-
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 
@@ -33,7 +31,7 @@ class MemorySearchTool(BaseTool):
         "facts, and conversation history. Returns the most relevant memories "
         "for personalization. Use this to understand user context before answering."
     )
-    args_schema: Type[BaseModel] = MemorySearchInput
+    args_schema: type[BaseModel] = MemorySearchInput
 
     def _run(self, query: str, user_id: str, limit: int = 5) -> str:
         """Search Mem0 for relevant user memories."""
@@ -63,14 +61,18 @@ class MemoryStoreTool(BaseTool):
         "Use this after extracting important information from conversations "
         "that should be remembered across sessions."
     )
-    args_schema: Type[BaseModel] = MemoryStoreInput
+    args_schema: type[BaseModel] = MemoryStoreInput
 
     def _run(self, content: str, user_id: str) -> str:
         """Store a memory via Mem0."""
-        from app.memory.mem0_service import Mem0Service
+        from app.memory.mem0_service import Mem0Service, clean_memory_content
+
+        clean_content = clean_memory_content(content)
+        if clean_content is None:
+            return "Skipped memory store: extracted content was too low-signal to persist."
 
         try:
-            result = Mem0Service.get_client().add(content, user_id=user_id)
-            return f"Memory stored successfully for user '{user_id}': {content[:100]}"
+            Mem0Service.add_memory(clean_content, user_id=user_id)
+            return f"Memory stored successfully for user '{user_id}': {clean_content[:100]}"
         except Exception as e:
             return f"Memory store error: {e}"

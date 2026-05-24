@@ -1,5 +1,5 @@
 """
-Gradio frontend testing harness for the OpenAI Clone backend.
+Gradio frontend testing harness for the ContextFlow backend.
 
 This app is intentionally focused on development workflows:
 - RAG chat against the FastAPI backend
